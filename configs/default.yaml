@@ -1,0 +1,45 @@
+# VIGILENS — default vision / analytics thresholds (MVP stubs)
+# Tune on pilot; keep explainable. Worker reads this file (CONFIG_PATH).
+
+version: 1
+
+sampling:
+  frames_per_second: 1.5          # target sample rate ~1–2 fps
+  window_seconds: 30              # TTOI aggregation window
+  partial_window_min_seconds: 15  # below this → partial_window, no decline alert
+
+orientation:
+  yaw_threshold_deg: 30           # |yaw'| below this → target-oriented (start)
+  pitch_down_threshold_deg: 20    # head-down cue when pitch exceeds this
+  face_width_min_px: 80           # Tier-2 MediaPipe only if face width ≳ this
+
+coverage:
+  min_coverage_pct: 70            # below → insufficient visual evidence
+  min_usable_seats: 5             # also suppress declines if fewer usable seats
+
+calibration:
+  occupied_seat_min_fraction: 0.5 # seat occupied if person present in ≥50% of calib samples
+
+decline:
+  smooth_median_seconds: 90       # rolling median smoother
+  baseline_seconds: 180           # recent baseline (~3 min)
+  min_drop_points: 10             # TTOI points vs baseline
+  min_persist_windows: 2          # must persist across windows
+
+tiers:
+  # Tier 1: body/pose only when face tiny
+  # Tier 2: head pose when face large enough
+  enable_tier2_head_pose: true
+
+modes:
+  # note_taking: head-down is expected (not treated as failure in scoring policy)
+  respect_teaching_modes: true
+
+models:
+  yolo_pose_weights: yolov8n-pose.pt   # Ultralytics auto-download on first run
+  mediapipe_face_landmarker: true
+
+privacy:
+  purge_video_after_analysis: true
+  store_face_crops: false
+  store_embeddings: false

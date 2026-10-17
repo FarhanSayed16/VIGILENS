@@ -1,0 +1,15 @@
+# Example room / camera defaults (replace via UI room_configs in the app).
+# Seat polygons and target ROI are normally stored in PostgreSQL after calibration.
+
+room:
+  name: example_lecture_hall
+  notes: Front-elevated camera facing seats; teaching target = board/screen zone.
+
+camera:
+  preferred_source: upload   # upload | webcam | phone_rtsp
+  webcam_index: 0
+  phone_url_example: http://192.168.1.10:8080/video
+
+# Placeholder geometry — real values come from room calibration UI
+seat_regions: []
+target_roi: null
