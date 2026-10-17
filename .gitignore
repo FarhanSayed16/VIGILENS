@@ -1,0 +1,67 @@
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.cover
+
+# Node / frontend
+node_modules/
+frontend/dist/
+frontend/build/
+*.tsbuildinfo
+.npm/
+.vite/
+
+# Model weights (download on setup; do not commit)
+models/**
+!models/.gitkeep
+!models/README.md
+
+# Uploads & runtime media (purge after analysis)
+uploads/**
+!uploads/.gitkeep
+data/raw/
+data/temp/
+*.mp4
+*.webm
+*.avi
+*.mov
+!data/sample_aggregates/.gitkeep
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs & local caches
+*.log
+logs/
+.cache/
+tmp/
+temp/
+
+# Docker volumes (if ever mounted locally)
+pgdata/
+redisdata/

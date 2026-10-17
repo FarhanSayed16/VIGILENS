@@ -3,15 +3,29 @@
 
 > **One-line pitch:** A local, privacy-first computer-vision system that shows a lecturer *when* observable classroom engagement signals decline during a lecture, *how reliable* that reading is, and *which topic or slide* was being taught at that moment.
 
-**Sole plan document:** [`docs/VIGILENS_COMPLETE_IDEA.md`](docs/VIGILENS_COMPLETE_IDEA.md)
-
 **Runtime targets:** Python **3.10+** · Node.js **18+**
+
+---
+
+## Documentation (start here)
+
+| Doc | Purpose |
+|---|---|
+| [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md) | **Execution checklist** — Phases 1–24 |
+| [`docs/DOCS_INDEX.md`](docs/DOCS_INDEX.md) | Map of all planning docs |
+| [`docs/PHASE1_LOCKS.md`](docs/PHASE1_LOCKS.md) | Locked product decisions (Phase 1 done) |
+| [`docs/VIGILENS_COMPLETE_IDEA.md`](docs/VIGILENS_COMPLETE_IDEA.md) | Product truth (TTOI, schema, API, privacy) |
+| [`docs/BACKEND_PLAN.md`](docs/BACKEND_PLAN.md) | Backend modules & contracts |
+| [`docs/FRONTEND_PLAN.md`](docs/FRONTEND_PLAN.md) | Pages, theme, UI plan |
+| [`docs/AIML_CONFIRMATION.md`](docs/AIML_CONFIRMATION.md) | Vision models & training policy |
+
+**Current progress:** Phases 1–7 done · next = Phase 8 (sessions)
 
 ---
 
 ## Executive overview
 
-**VIGILENS** is a reflective teaching tool: it analyses consented classroom video locally and produces an anonymous **class-level** timeline of observable orientation toward the teaching target (TTOI), with coverage/uncertainty and topic markers. It does **not** read minds, identify students, or grade anyone.
+**VIGILENS** is a reflective teaching tool: it analyses consented classroom video locally and produces an anonymous **class-level** timeline of observable orientation toward the teaching target (**TTOI**), with coverage/uncertainty and topic markers. It does **not** read minds, identify students, or grade anyone.
 
 ### Core philosophy
 
@@ -19,7 +33,7 @@
 2. **Class-level aggregation only** — no individual scores, no face recognition, no permanent student tracking.
 3. **Coverage first** — low evidence → “insufficient visual evidence,” not a fake score (~**70%** usable seats, tunable).
 4. **Rule-based TTOI first** — ML only if it beats the baseline on held-out local sessions.
-5. **Human validation** — double-**labelling** for annotator agreement + anonymous pulse checks (not “double-blind” clinical trials).
+5. **Human validation** — annotator labelling + anonymous pulse checks.
 
 ---
 
@@ -31,90 +45,102 @@
        ▼
 ┌────────────────────────────────────────────────────────┐
 │ React Frontend (Vite)                                  │
-│  Session setup · ingest · topic markers · timeline UI  │
 └───────────────────────┬────────────────────────────────┘
-                        │ REST (+ WebSocket job progress)
+                        │ REST
 ┌───────────────────────▼────────────────────────────────┐
 │ FastAPI Backend                                        │
-│  Auth (lecturer JWT) · CORS · jobs · export            │
 └───────────┬─────────────────────────┬──────────────────┘
             ▼                         ▼
 ┌──────────────────────┐   ┌────────────────────────────┐
 │ PostgreSQL           │   │ Redis                      │
-│ sessions · windows · │   │ job status · summaries     │
-│ events · topics      │   │ timeline cache             │
 └──────────┬───────────┘   └────────────▲───────────────┘
            │                            │
            ▼                            │
 ┌────────────────────────────────────────────────────────┐
-│ Vision Worker                                          │
-│  YOLOv8-pose + MediaPipe Face Landmarker (Tier-2)      │
-│  Seat regions → TTOI / coverage → candidate declines   │
-│  Writes Postgres; updates Redis progress               │
+│ Vision Worker (YOLOv8-pose + MediaPipe Face Landmarker)│
 └────────────────────────────────────────────────────────┘
 ```
 
-**Locked stack:** FastAPI + React + PostgreSQL + Redis (not Streamlit-as-product).  
-**Locked vision:** pretrained YOLOv8-pose + MediaPipe **Face Landmarker** Task API.  
-**Orientation start thresholds:** yaw **±30°**, pitch-down **~20°** (tune on pilot).
+**Locked stack:** FastAPI + React + PostgreSQL + Redis.  
+**Locked vision:** pretrained YOLOv8-pose + MediaPipe Face Landmarker.  
+**Thresholds start:** yaw **±30°**, pitch-down **~20°** (see `configs/default.yaml`).
 
 ---
 
-## Core metric: TTOI
-
-**Teaching-Target Orientation Index** — share of usable seat observations oriented toward the configured teaching-target zone (usually the board/screen area).
-
-- Every window reports **coverage**; below ~70% (or &lt;5 usable seats) → suppress decline alerts.
-- In **Note-taking** mode, head-down is not treated as failure.
-- Candidate declines = observable orientation change worth reviewing — not “students got bored.”
-
----
-
-## Repository structure (target)
+## Repository layout (Phase 2)
 
 ```text
 vigilens/
 ├── README.md
-├── docker-compose.yml              # Postgres + Redis
+├── docker-compose.yml          # Postgres + Redis
 ├── .gitignore
 ├── .env.example
-├── docs/
-│   └── VIGILENS_COMPLETE_IDEA.md   # ★ Sole project plan
-├── backend/                        # FastAPI + Alembic + Redis
-├── worker/                         # YOLO + MediaPipe pipeline
-├── frontend/                       # React (Vite)
-├── configs/                        # default.yaml, camera_room.yaml
-├── notebooks/                      # OUC-CGE / evaluation notebooks
-├── models/                         # pretrained weights (gitignored)
-├── data/                           # sample aggregates only in git
-└── tests/
+├── configs/
+│   ├── default.yaml            # TTOI / coverage / decline thresholds
+│   └── camera_room.yaml        # example room/camera hints
+├── docs/                       # plans + locks
+├── backend/                    # FastAPI (Phase 3+)
+├── frontend/                   # React Vite (Phase 4+)
+├── worker/                     # CV pipeline (Phase 11 / 16+)
+├── tests/
+├── models/                     # weights gitignored; README explains download
+├── data/                       # sample aggregates only
+├── notebooks/                  # optional research
+└── uploads/                    # runtime video (gitignored)
 ```
 
 ---
 
-## Quick start (after scaffold exists)
+## Prerequisites
+
+| Tool | Version | Notes |
+|---|---|---|
+| Python | **3.10+** | Backend + worker |
+| Node.js | **18+** | Frontend |
+| Docker Desktop / Engine | Latest | For Postgres + Redis via Compose |
+| Git | any | |
+
+**Docker note:** If Docker is not on this machine, still keep using `docker-compose.yml`. Run `docker compose up -d` on a machine that has Docker (e.g. home laptop) to verify Postgres + Redis are healthy.
+
+---
+
+## Quick start — infrastructure (Phase 2)
 
 ```bash
-# 1. Infra
+# From repo root
+copy .env.example .env          # Windows
+# cp .env.example .env          # macOS/Linux
+# Edit .env — at least POSTGRES_PASSWORD and SECRET_KEY
+
 docker compose up -d
-
-# 2. Backend (example)
-cd backend
-python -m venv .venv
-# Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-copy ..\.env.example .env   # or cp on Unix — set DATABASE_URL, REDIS_URL, SECRET_KEY
-alembic upgrade head
-uvicorn app.main:app --reload --port 8000
-
-# 3. Frontend
-cd ../frontend
-npm install
-npm run dev
-# Open http://localhost:5173  (API at http://localhost:8000)
+docker compose ps               # postgres + redis should be up/healthy
 ```
 
-Until the scaffold is created, follow the **First 7 days** checklist in the plan doc.
+Stop:
+
+```bash
+docker compose down
+```
+
+### Backend (Phase 3+)
+
+```bash
+cd backend
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload --port 8000
+# http://localhost:8000/health
+```
+
+### Frontend (Phase 4+)
+
+```bash
+cd frontend
+npm install
+npm run dev
+# http://localhost:5173  (scaffold login: any non-empty password)
+```
 
 ---
 
@@ -130,6 +156,6 @@ Designed to align with India’s **DPDP Act, 2023** / **DPDP Rules, 2025** where
 
 ---
 
-## Documentation
+## How to continue building
 
-- **[Complete Idea & Final Plan](docs/VIGILENS_COMPLETE_IDEA.md)** — only plan file (architecture, schema, API, calculations, action plan, appendices).
+Follow [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md) in order. Next: **Phase 3 — Backend scaffold**.

@@ -1,0 +1,10 @@
+Alembic migrations for VIGILENS.
+
+```bash
+cd backend
+.\.venv\Scripts\activate
+alembic upgrade head
+alembic current
+```
+
+Requires Postgres from `docker compose up -d` (see repo root).

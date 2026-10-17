@@ -1,0 +1,40 @@
+# VIGILENS — local infrastructure (PostgreSQL + Redis)
+# Verify on a machine with Docker:  docker compose up -d
+# Then: docker compose ps   (both services should be healthy/up)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vigilens-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-vigilens}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-vigilens}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - vigilens_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vigilens} -d ${POSTGRES_DB:-vigilens}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: vigilens-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - vigilens_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  vigilens_pgdata:
+  vigilens_redisdata:
