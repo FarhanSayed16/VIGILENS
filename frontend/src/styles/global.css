@@ -1,0 +1,89 @@
+@import "./tokens.css";
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  color: var(--text-primary);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(15, 118, 110, 0.08), transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, rgba(94, 116, 140, 0.08), transparent 50%),
+    var(--bg-canvas);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3,
+.brand-wordmark {
+  font-family: var(--font-display);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  color: var(--accent-hover);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.page-stub {
+  max-width: 720px;
+}
+
+.page-stub p {
+  color: var(--text-secondary);
+  margin: var(--space-3) 0 0;
+}
+
+.stub-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  padding: var(--space-2) var(--space-3);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
