@@ -1,0 +1,20 @@
+"""Auth request/response schemas."""
+
+from pydantic import BaseModel, Field
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=128)
+    password: str = Field(min_length=1, max_length=256)
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in_minutes: int
+    username: str
+
+
+class LecturerMe(BaseModel):
+    username: str
+    role: str = "lecturer"
