@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -54,6 +54,12 @@ class Settings(BaseSettings):
         default=str(REPO_ROOT / "configs" / "default.yaml"),
         alias="CONFIG_PATH",
     )
+
+    # Analysis worker: false = real YOLO/MediaPipe (Phase 20); true = synthetic (CI / Checkpoint A)
+    use_fake_worker: bool = Field(default=False, alias="USE_FAKE_WORKER")
+
+    # Optional cap on sampled frames for real worker (dev/smoke); None = full clip
+    worker_max_frames: Optional[int] = Field(default=None, alias="WORKER_MAX_FRAMES")
 
     app_name: str = "VIGILENS API"
     app_version: str = "0.1.0"

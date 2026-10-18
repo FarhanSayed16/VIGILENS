@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hmac
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
@@ -10,13 +11,34 @@ from jose import JWTError, jwt
 
 from app.core.settings import Settings, get_settings
 
+logger = logging.getLogger(__name__)
+
+
+def _looks_like_bcrypt(value: str) -> bool:
+    return value.startswith(("$2a$", "$2b$", "$2y$"))
+
 
 def verify_lecturer_password(plain: str, settings: Optional[Settings] = None) -> bool:
-    """MVP: constant-time compare to env password."""
+    """
+    Verify lecturer password.
+
+    Supports bcrypt hashes in LECTURER_PASSWORD (prefix $2b$ / $2a$ / $2y$).
+    Plaintext env values still work for local MVP (constant-time compare).
+    """
     settings = settings or get_settings()
+    stored = settings.lecturer_password
+    if _looks_like_bcrypt(stored):
+        try:
+            from passlib.context import CryptContext
+
+            ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+            return bool(ctx.verify(plain, stored))
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("bcrypt verify failed: %s", type(exc).__name__)
+            return False
     return hmac.compare_digest(
         plain.encode("utf-8"),
-        settings.lecturer_password.encode("utf-8"),
+        stored.encode("utf-8"),
     )
 
 
