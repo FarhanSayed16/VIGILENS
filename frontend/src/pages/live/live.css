@@ -1,0 +1,223 @@
+.live-page {
+  max-width: 52rem;
+}
+
+.live-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.live-header h1 {
+  margin: 0 0 var(--space-2);
+}
+
+.live-header p {
+  margin: 0;
+  color: var(--text-secondary);
+  max-width: 32rem;
+  font-size: var(--text-sm);
+}
+
+.live-clock {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-5);
+  text-align: right;
+  min-width: 7.5rem;
+}
+
+.live-clock-label {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.live-clock-value {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl, 1.75rem);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.live-status {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+
+@media (max-width: 560px) {
+  .live-status {
+    grid-template-columns: 1fr;
+  }
+}
+
+.live-status > div {
+  background: var(--bg-muted);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+}
+
+.live-status .label {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.live-status strong {
+  font-size: var(--text-sm);
+}
+
+.live-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+  margin-bottom: var(--space-4);
+}
+
+.live-panel h2 {
+  margin: 0;
+  font-size: var(--text-base);
+}
+
+.live-panel-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  color: var(--accent-ink);
+}
+
+.topic-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.topic-form input {
+  flex: 1 1 16rem;
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-canvas);
+  font-size: var(--text-base);
+}
+
+.topic-submit {
+  padding: var(--space-4) var(--space-5);
+  font-size: var(--text-base);
+  min-height: 3.25rem;
+}
+
+.mode-switcher {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+}
+
+@media (max-width: 720px) {
+  .mode-switcher {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.mode-btn {
+  appearance: none;
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--bg-canvas);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  cursor: pointer;
+  color: inherit;
+  transition: border-color var(--motion-fast, 120ms) ease,
+    background var(--motion-fast, 120ms) ease;
+}
+
+.mode-btn strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: var(--text-sm);
+}
+
+.mode-btn span {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.mode-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.mode-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.mode-btn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.live-lists {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+@media (max-width: 720px) {
+  .live-lists {
+    grid-template-columns: 1fr;
+  }
+}
+
+.live-lists .live-panel {
+  margin-bottom: 0;
+}
+
+.live-empty {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.marker-list {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  max-height: 16rem;
+  overflow: auto;
+}
+
+.marker-list li {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-sm);
+}
+
+.marker-list li:last-child {
+  border-bottom: none;
+}
+
+.marker-time {
+  flex: 0 0 5.5rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: var(--text-xs);
+}
+
+.marker-label {
+  flex: 1;
+}
