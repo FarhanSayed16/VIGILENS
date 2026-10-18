@@ -1,9 +1,10 @@
 # VIGILENS — A Clearer Lens on Learning
 ### Privacy-Preserving Classroom Engagement Trend Analyzer
 
-> **One-line pitch:** A local, privacy-first computer-vision system that shows a lecturer *when* observable classroom engagement signals decline during a lecture, *how reliable* that reading is, and *which topic or slide* was being taught at that moment.
+> **One-line pitch:** A local, privacy-first computer-vision system that shows a lecturer *when* class-level orientation toward the teaching target declines (TTOI), *how reliable* that reading is (coverage), and *which topic* was active — without identifying students or scoring individuals.
 
-**Runtime targets:** Python **3.10+** · Node.js **18+**
+**Runtime targets:** Python **3.10–3.12** (use **3.12** on this machine: `py -3.12 -m venv backend/.venv`) · Node.js **18+**  
+**Avoid Python 3.14 for now** — several pinned wheels fail to build.
 
 ---
 
@@ -18,8 +19,10 @@
 | [`docs/BACKEND_PLAN.md`](docs/BACKEND_PLAN.md) | Backend modules & contracts |
 | [`docs/FRONTEND_PLAN.md`](docs/FRONTEND_PLAN.md) | Pages, theme, UI plan |
 | [`docs/AIML_CONFIRMATION.md`](docs/AIML_CONFIRMATION.md) | Vision models & training policy |
+| [`docs/AUDIT_PHASES_1_23.md`](docs/AUDIT_PHASES_1_23.md) | Gaps / fix backlog through Phase 23 |
+| [`docs/THRESHOLDS.md`](docs/THRESHOLDS.md) | Pilot-start vision thresholds |
 
-**Current progress:** Phases 1–7 done · next = Phase 8 (sessions)
+**Current progress:** Phases **1–22** complete (app + real worker + pilot tooling). **Phase 23** (demo hardening / a11y) still open. See [`docs/DOCS_INDEX.md`](docs/DOCS_INDEX.md).
 
 ---
 

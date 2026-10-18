@@ -24,10 +24,10 @@ def me(lecturer: CurrentLecturer) -> LecturerMe:
 
 @router.get("/public-info")
 def public_info() -> dict:
-    """Tiny public hint (no secrets) for frontend wiring checks."""
+    """Tiny public hint (no secrets / no username) for frontend wiring checks."""
     settings = get_settings()
     return {
         "auth": "jwt",
-        "username_hint": settings.lecturer_username,
         "token_minutes": settings.jwt_expire_minutes,
+        "use_fake_worker": bool(settings.use_fake_worker),
     }
