@@ -14,6 +14,7 @@ import "../styles/shell.css";
 const titles: Record<string, string> = {
   "/": "Sessions",
   "/sessions": "Sessions",
+  "/sessions/new": "New session",
   "/rooms": "Rooms",
   "/rooms/new": "Create room",
   "/app/privacy": "Privacy",
@@ -21,8 +22,11 @@ const titles: Record<string, string> = {
 };
 
 function titleFor(pathname: string): string {
+  if (pathname === "/sessions/new") {
+    return "New session";
+  }
   if (pathname.startsWith("/sessions/") && pathname !== "/sessions") {
-    return "Session";
+    return "Session hub";
   }
   if (/^\/rooms\/\d+\/edit$/.test(pathname)) {
     return "Edit room";
