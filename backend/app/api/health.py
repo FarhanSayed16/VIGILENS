@@ -55,6 +55,7 @@ def health() -> Dict[str, Any]:
         "status": "ok",
         "service": settings.app_name,
         "version": settings.app_version,
+        "use_fake_worker": bool(settings.use_fake_worker),
         "database": _check_database(),
         "redis": _check_redis(),
     }

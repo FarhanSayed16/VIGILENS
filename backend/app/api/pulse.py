@@ -1,24 +1,20 @@
-"""Public pulse stub — full implementation in Phase 14."""
+"""Public anonymous pulse — score only, rate-limited, topic stamped server-side."""
 
-from fastapi import APIRouter
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, Request
+from sqlalchemy.orm import Session
+
+from app.deps.db import get_db
+from app.schemas.pulse import PulseAccepted, PulseSubmit
+from app.services import pulse_service
 
 router = APIRouter(tags=["pulse"])
 
 
-class PulseStubRequest(BaseModel):
-    score_1_to_5: int = Field(ge=1, le=5)
-
-
-@router.post("/pulse/{session_id}")
-def pulse_stub(session_id: int, body: PulseStubRequest) -> dict:
-    """
-    Public (no JWT). Phase 14 will persist to DB and stamp topic_id.
-    Rejects any extra identity fields by schema (score only).
-    """
-    return {
-        "status": "accepted_stub",
-        "session_id": session_id,
-        "score_1_to_5": body.score_1_to_5,
-        "message": "Pulse persistence arrives in Phase 14.",
-    }
+@router.post("/pulse/{session_id}", response_model=PulseAccepted)
+def submit_pulse(
+    session_id: int,
+    body: PulseSubmit,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> PulseAccepted:
+    return pulse_service.submit_pulse(db, session_id, body, request)
