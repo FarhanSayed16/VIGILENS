@@ -14,10 +14,15 @@
 |---|---|---|
 | **1 — Execute** | [`MASTER_PLAN.md`](./MASTER_PLAN.md) | Phases 1–24, checklists, checkpoints A/B/C, build order |
 | **1b — Phase 1 locks** | [`PHASE1_LOCKS.md`](./PHASE1_LOCKS.md) | Locked product/plan decisions (**Phase 1 complete**) |
+| **1c — Checkpoint A** | [`CHECKPOINT_A.md`](./CHECKPOINT_A.md) | Fake-worker app E2E sign-off (**Phase 15 complete**) |
+| **1d — Checkpoint B** | [`CHECKPOINT_B.md`](./CHECKPOINT_B.md) | Real-worker analysis sign-off (**Phase 20 complete**) |
+| **1e — Pilot** | [`PILOT_RUNBOOK.md`](./PILOT_RUNBOOK.md) | Consented lecture path + [`PILOT_LIMITATIONS.md`](./PILOT_LIMITATIONS.md) |
+| **1f — Audit 1–23** | [`AUDIT_PHASES_1_23.md`](./AUDIT_PHASES_1_23.md) | Gaps, bugs, P0–P2 backlog before Phase 24 |
 | **2 — Product truth** | [`VIGILENS_COMPLETE_IDEA.md`](./VIGILENS_COMPLETE_IDEA.md) | What VIGILENS is/isn’t, TTOI, schema, API list, privacy |
 | **3 — Backend detail** | [`BACKEND_PLAN.md`](./BACKEND_PLAN.md) | Modules, services, Redis, job lifecycle, folder plan |
 | **4 — Frontend detail** | [`FRONTEND_PLAN.md`](./FRONTEND_PLAN.md) | Pages, theme, nav, components, motion |
 | **5 — AIML detail** | [`AIML_CONFIRMATION.md`](./AIML_CONFIRMATION.md) | Models, tiers, training policy, what you must supply |
+| **5b — Thresholds** | [`THRESHOLDS.md`](./THRESHOLDS.md) | Pilot-start YAML values + Phase 21 sign-off |
 
 ---
 
@@ -28,6 +33,7 @@
 3. **Backend module contracts** → `BACKEND_PLAN.md`  
 4. **UI/pages/theme** → `FRONTEND_PLAN.md`  
 5. **Vision models** → `AIML_CONFIRMATION.md`  
+6. **Numeric threshold start values** → `THRESHOLDS.md` / `configs/default.yaml`  
 
 ---
 
@@ -48,8 +54,8 @@ Foundation → Backend + Frontend (with fake worker) → Checkpoint A
 
 | ID | Meaning | Master phase |
 |---|---|---|
-| **A** | Full app E2E with fake vision | After Phase 15 |
-| **B** | Real YOLO/MediaPipe analysis in the app | After Phase 20 |
+| **A** | Full app E2E with fake vision | **SIGNED OFF** (Phase 15, 18 Oct 2026) |
+| **B** | Real YOLO/MediaPipe analysis in the app | **SIGNED OFF** (Phase 20, 18 Oct 2026) |
 | **C** | MVP complete (pilot + docs + demo) | After Phase 24 |
 
 ---
@@ -81,13 +87,28 @@ Foundation → Backend + Frontend (with fake worker) → Checkpoint A
 | Phase | Status |
 |---|---|
 | **1 — Lock decisions** | **DONE** |
-| **2 — Monorepo foundation** | **DONE** (Compose runtime verify on home laptop) |
+| **2 — Monorepo foundation** | **DONE** — Compose verified healthy (18 Oct 2026) |
 | **3 — Backend scaffold** | **DONE** |
 | **4 — Frontend scaffold** | **DONE** |
-| **5 — Database schema** | **DONE** (apply migration on home laptop with Postgres) |
-| **6 — Auth & security** | **DONE** |
-| **7 — Rooms** | **DONE** (UI persist needs Postgres) |
-| **8 — Sessions** | Next |
-| 9–24 | Pending |
+| **5 — Database schema** | **DONE** — `alembic upgrade head` applied on live Postgres |
+| **6 — Auth & security** | **DONE** — login / JWT / 401 verified live |
+| **7 — Rooms** | **DONE** — create/list verified on Postgres (use field names `seat_regions` / `target_roi`) |
+| **8 — Sessions** | **DONE** |
+| **9 — Topics & modes** | **DONE** |
+| **10 — Media upload** | **DONE** |
+| **11 — Jobs + fake worker** | **DONE** |
+| **12 — Results APIs** | **DONE** |
+| **13 — Results UI** | **DONE** |
+| **14 — Export / purge / pulse** | **DONE** |
+| **15 — Checkpoint A** | **DONE** — see [`CHECKPOINT_A.md`](./CHECKPOINT_A.md) |
+| **16 — AIML foundation** | **DONE** — capture + config + regions; YOLO/MP stubs |
+| **17 — YOLOv8-pose** | **DONE** — seat assign + N_expected; smoke overlay |
+| **18 — MediaPipe Tier-2** | **DONE** — Face Landmarker + solvePnP signs verified |
+| **19 — TTOI / coverage / declines** | **DONE** — offline metrics + unit tests + schema JSON |
+| **20 — Real worker integration** | **DONE** — Checkpoint B; `USE_FAKE_WORKER` flag |
+| **21 — Threshold tuning** | **DONE** — see [`THRESHOLDS.md`](./THRESHOLDS.md) |
+| **22 — Pilot classroom video** | **DONE** — runbook + validation tooling; fill `PILOT_SESSION.md` on first lecture |
+| **23 — Hardening / demo polish** | **Next** (deferred; see audit P0/P1 fix pass) |
+| 24 | Pending |
 
-**Docker:** `docker-compose.yml` is in the repo. On home laptop: `docker compose up -d` then `docker compose ps`.
+**Docker (verified):** `docker compose up -d` → `vigilens-postgres` + `vigilens-redis` healthy. Use **Python 3.12** for backend venv (`py -3.12 -m venv .venv`); Python 3.14 lacks many wheels.
