@@ -1,5 +1,6 @@
-# VIGILENS — default vision / analytics thresholds (MVP stubs)
-# Tune on pilot; keep explainable. Worker reads this file (CONFIG_PATH).
+# VIGILENS — vision / analytics thresholds (pilot start values)
+# Tuned on scripted behaviours (Phase 21). See docs/THRESHOLDS.md.
+# Worker reads this file (CONFIG_PATH). Do not invent per-seat precision.
 
 version: 1
 
@@ -7,27 +8,35 @@ sampling:
   frames_per_second: 1.5          # target sample rate ~1–2 fps
   window_seconds: 30              # TTOI aggregation window
   partial_window_min_seconds: 15  # below this → partial_window, no decline alert
+  min_usable_sample_frac: 0.5     # seat usable in window if ≥ this fraction observable
 
 orientation:
-  yaw_threshold_deg: 30           # |yaw'| below this → target-oriented (start)
-  pitch_down_threshold_deg: 20    # head-down cue when pitch exceeds this
-  face_width_min_px: 80           # Tier-2 MediaPipe only if face width ≳ this
+  # Tier-2 head yaw' band (MediaPipe/solvePnP). Locked product start: 30°.
+  yaw_threshold_deg: 30
+  # Tier-1 body/shoulder proxy is coarser — wider band (scripted eval).
+  tier1_yaw_threshold_deg: 45
+  # Head-down cue when pitch ≥ this (+pitch = look down, Phase 18 convention).
+  pitch_down_threshold_deg: 20
+  # Tier-2 only if inter-outer-eye width ≳ this; else Tier-1 or unobservable.
+  face_width_min_px: 80
+  head_down_min_seconds: 8        # sustained head-down for HDC % in window
 
 coverage:
-  min_coverage_pct: 70            # below → insufficient visual evidence
+  min_coverage_pct: 70            # below → insufficient visual evidence (null TTOI)
   min_usable_seats: 5             # also suppress declines if fewer usable seats
 
 calibration:
   occupied_seat_min_fraction: 0.5 # seat occupied if person present in ≥50% of calib samples
+  horizon_seconds: 180            # use first ~3 min of samples for N_expected
 
 decline:
-  smooth_median_seconds: 90       # rolling median smoother
-  baseline_seconds: 180           # recent baseline (~3 min)
+  smooth_median_seconds: 90       # rolling median smoother (~3 windows @ 30s)
+  baseline_seconds: 180           # recent baseline (~3 min / 6 windows)
   min_drop_points: 10             # TTOI points vs baseline
   min_persist_windows: 2          # must persist across windows
 
 tiers:
-  # Tier 1: body/pose only when face tiny
+  # Tier 1: body/pose when face tiny / far seats
   # Tier 2: head pose when face large enough
   enable_tier2_head_pose: true
 
@@ -37,7 +46,7 @@ modes:
 
 models:
   yolo_pose_weights: yolov8n-pose.pt   # Ultralytics auto-download on first run
-  mediapipe_face_landmarker: true
+  mediapipe_face_landmarker: models/face_landmarker.task
 
 privacy:
   purge_video_after_analysis: true

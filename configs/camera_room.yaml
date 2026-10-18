@@ -1,15 +1,28 @@
-# Example room / camera defaults (replace via UI room_configs in the app).
-# Seat polygons and target ROI are normally stored in PostgreSQL after calibration.
+# Example room / camera defaults for pilot calibration.
+# Real geometry is stored in PostgreSQL via the Rooms UI after drawing on a
+# still from the *actual* lecture-camera placement (Phase 22).
 
 room:
   name: example_lecture_hall
-  notes: Front-elevated camera facing seats; teaching target = board/screen zone.
+  notes: >
+    Front-elevated camera facing seats; teaching target = board/screen zone.
+    Pilot: recalibrate seats + target_roi on a frame from the real camera
+    before the consented lecture. Do not reuse placeholder empty regions.
 
 camera:
   preferred_source: upload   # upload | webcam | phone_rtsp
   webcam_index: 0
   phone_url_example: http://192.168.1.10:8080/video
+  # Calibration tips:
+  # - Capture a well-lit still with seats occupied if possible
+  # - Draw one polygon/box per seat (or dense seat cells)
+  # - Target ROI = board / lecturer facing zone students should orient toward
 
-# Placeholder geometry — real values come from room calibration UI
+# Placeholder — replace via Rooms UI (not used by worker unless copied into session room)
 seat_regions: []
 target_roi: null
+
+pilot:
+  consent_required: true
+  purge_video_after_analysis: true
+  annotation_guide: docs/annotation/ORIENTATION_LABELS.md
