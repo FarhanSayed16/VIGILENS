@@ -77,6 +77,19 @@ class Settings(BaseSettings):
             path = (REPO_ROOT / path).resolve()
         return str(path)
 
+    @field_validator("config_path", mode="before")
+    @classmethod
+    def resolve_config_path(cls, v: object) -> str:
+        """Resolve CONFIG_PATH against repo root (not process CWD / backend/)."""
+        if v is None or str(v).strip() == "":
+            return str(REPO_ROOT / "configs" / "default.yaml")
+        path = Path(str(v))
+        if path.is_file():
+            return str(path.resolve())
+        if not path.is_absolute():
+            return str((REPO_ROOT / path).resolve())
+        return str(path)
+
 
 @lru_cache
 def get_settings() -> Settings:

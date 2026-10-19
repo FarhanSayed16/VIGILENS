@@ -1,9 +1,16 @@
 """Domain exceptions and HTTP exception handlers."""
 
+from __future__ import annotations
+
+import logging
 from typing import Any, Dict, Optional
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+logger = logging.getLogger(__name__)
 
 
 class AppError(Exception):
@@ -46,7 +53,14 @@ class PayloadTooLargeError(AppError):
 
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
-    async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
+    async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+        logger.info(
+            "AppError %s %s → %s (%s)",
+            request.method,
+            request.url.path,
+            exc.status_code,
+            exc.code,
+        )
         return JSONResponse(
             status_code=exc.status_code,
             content={
@@ -56,9 +70,47 @@ def register_exception_handlers(app: FastAPI) -> None:
             },
         )
 
+    @app.exception_handler(RequestValidationError)
+    async def validation_error_handler(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        logger.info(
+            "ValidationError %s %s",
+            request.method,
+            request.url.path,
+        )
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "validation_error",
+                "message": "Request validation failed",
+                "details": {"errors": exc.errors()},
+            },
+        )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_error_handler(
+        request: Request, exc: StarletteHTTPException
+    ) -> JSONResponse:
+        detail = exc.detail
+        message = detail if isinstance(detail, str) else "HTTP error"
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": "http_error",
+                "message": message,
+                "details": detail if isinstance(detail, dict) else {},
+            },
+        )
+
     @app.exception_handler(Exception)
-    async def unhandled_error_handler(_request: Request, exc: Exception) -> JSONResponse:
-        # Scaffold: avoid leaking internals; log at call site later
+    async def unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+        logger.exception(
+            "Unhandled error %s %s: %s",
+            request.method,
+            request.url.path,
+            type(exc).__name__,
+        )
         return JSONResponse(
             status_code=500,
             content={

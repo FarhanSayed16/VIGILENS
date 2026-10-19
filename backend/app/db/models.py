@@ -65,6 +65,10 @@ class Session(Base):
     # Disk path under UPLOAD_DIR only — never permanent face assets
     video_path: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
     source_url: Mapped[Optional[str]] = mapped_column(String(1024), nullable=True)
+    # Optional second camera URL/index — display only; metrics use primary
+    secondary_source_url: Mapped[Optional[str]] = mapped_column(
+        String(1024), nullable=True
+    )
     # Optional denormalized cache of latest teaching mode
     current_mode: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -147,12 +151,14 @@ class Window(Base):
     candidate_decline: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     dominant_cue: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     data_quality_note: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    # Per-seat orientation stats for heatmap (anonymous seat_id → O%)
+    seat_stats_json: Mapped[Optional[Any]] = mapped_column(JsonType, nullable=True)
 
     session: Mapped[Session] = relationship(back_populates="windows")
 
 
 class Event(Base):
-    """Candidate orientation decline — not 'attention dropped'."""
+    """Candidate orientation decline / group pattern — not 'attention dropped'."""
 
     __tablename__ = "events"
 
@@ -170,6 +176,12 @@ class Event(Base):
     teaching_mode: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     dominant_cue: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    kind: Mapped[Optional[str]] = mapped_column(
+        String(64), nullable=True, default="orientation_decline"
+    )
+    seat_ids_json: Mapped[Optional[Any]] = mapped_column(JsonType, nullable=True)
+    group_label: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
+    lecturer_feedback: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
 
     session: Mapped[Session] = relationship(back_populates="events")
 

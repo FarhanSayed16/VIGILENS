@@ -13,6 +13,7 @@ class SessionStatus(StrEnum):
     DRAFT = "draft"
     READY = "ready"
     ANALYZING = "analyzing"
+    LIVE = "live"
     COMPLETE = "complete"
     ERROR = "error"
     PURGED_VIDEO = "purged_video"
