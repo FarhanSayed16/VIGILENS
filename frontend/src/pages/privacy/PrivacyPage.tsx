@@ -29,7 +29,12 @@ export function PrivacyPage({ publicLayout = false }: Props) {
       </ul>
       <p>
         This is a teaching-reflection tool, not a surveillance or emotion AI
-        product.
+        product. Sample or public clips may be used for demos when classroom
+        video is unavailable.
+      </p>
+      <p>
+        Contact (project): your course supervisor / institutional research
+        office — replace this placeholder before public deployment.
       </p>
       {publicLayout ? (
         <p>
