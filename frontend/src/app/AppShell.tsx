@@ -7,43 +7,56 @@ import {
 } from "lucide-react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { BrandMark } from "../components/domain/BrandMark";
+import { SessionSubnav } from "../components/domain/SessionSubnav";
 import { PageTransition } from "../components/ui/PageTransition";
 import { clearSession, getUsername } from "../stores/auth";
 import "../styles/shell.css";
 
-const titles: Record<string, string> = {
-  "/": "Sessions",
-  "/sessions": "Sessions",
-  "/sessions/new": "New session",
-  "/rooms": "Rooms",
-  "/rooms/new": "Create room",
-  "/app/privacy": "Privacy",
-  "/settings": "Settings",
-};
-
 function titleFor(pathname: string): string {
-  if (pathname === "/sessions/new") {
-    return "New session";
+  if (pathname === "/sessions/new") return "New session";
+  if (pathname === "/rooms/new") return "Create room";
+  if (/^\/rooms\/\d+\/edit$/.test(pathname)) return "Edit room";
+  if (pathname === "/rooms") return "Rooms";
+  if (pathname === "/app/privacy") return "Privacy";
+  if (pathname === "/settings") return "Settings";
+  if (pathname === "/sessions" || pathname === "/") return "Sessions";
+
+  const m = pathname.match(/^\/sessions\/(\d+)(\/.*)?$/);
+  if (m) {
+    const rest = m[2] || "";
+    const map: Record<string, string> = {
+      "": "Live lecture",
+      "/setup": "Setup",
+      "/live": "Topics & modes",
+      "/analysis": "Live lecture",
+      "/results": "Review",
+      "/export": "Export",
+      "/pulse": "Pulse QR",
+    };
+    return map[rest] ?? "Session";
   }
-  if (pathname.startsWith("/sessions/") && pathname !== "/sessions") {
-    return "Session hub";
-  }
-  if (/^\/rooms\/\d+\/edit$/.test(pathname)) {
-    return "Edit room";
-  }
-  return titles[pathname] ?? "VIGILENS";
+  return "VIGILENS";
+}
+
+function sessionIdFromPath(pathname: string): number | null {
+  const m = pathname.match(/^\/sessions\/(\d+)/);
+  if (!m) return null;
+  const id = Number(m[1]);
+  return Number.isFinite(id) ? id : null;
 }
 
 export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
+  const username = getUsername() ?? "lecturer";
+  const sessionId = sessionIdFromPath(location.pathname);
+  const showSessionNav =
+    sessionId != null && !location.pathname.endsWith("/new");
 
   function logout() {
     clearSession();
     navigate("/login");
   }
-
-  const username = getUsername() ?? "lecturer";
 
   return (
     <div className="app-shell">
@@ -95,6 +108,7 @@ export function AppShell() {
           <div className="context-meta">{username} · lecturer workspace</div>
         </header>
         <main className="stage">
+          {showSessionNav ? <SessionSubnav sessionId={sessionId} /> : null}
           <PageTransition key={location.pathname}>
             <Outlet />
           </PageTransition>

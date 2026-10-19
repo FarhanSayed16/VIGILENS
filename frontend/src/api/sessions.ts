@@ -5,6 +5,7 @@ export type SessionStatus =
   | "draft"
   | "ready"
   | "analyzing"
+  | "live"
   | "complete"
   | "error"
   | "purged_video";
@@ -17,6 +18,7 @@ export type LectureSession = {
   source_type: SourceType;
   status: SessionStatus;
   source_url: string | null;
+  secondary_source_url?: string | null;
   video_path: string | null;
   current_mode: string | null;
   started_at: string | null;
