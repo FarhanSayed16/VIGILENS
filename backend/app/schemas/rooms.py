@@ -50,6 +50,10 @@ class CameraDefaults(BaseModel):
     preferred_source: Optional[Literal["upload", "webcam", "phone_rtsp"]] = "upload"
     webcam_index: Optional[int] = Field(default=0, ge=0, le=10)
     phone_url_example: Optional[str] = Field(default=None, max_length=1024)
+    # Quick-calibrate viewpoint (back_of_room | facing_class | left_side | right_side)
+    placement: Optional[str] = Field(default=None, max_length=32)
+    # toward_camera = no in-frame board; students looking at lens count as oriented
+    facing_mode: Optional[str] = Field(default=None, max_length=32)
 
 
 class RoomCreate(BaseModel):

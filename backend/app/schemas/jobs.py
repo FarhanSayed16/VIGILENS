@@ -31,3 +31,10 @@ class AnalysisStartResponse(JobRead):
     message: str = Field(
         default="Analysis job started. Poll GET /jobs/{id} for progress."
     )
+
+
+class AnalysisRecoverResponse(BaseModel):
+    recovered: bool = True
+    session_status: str
+    job: Optional[JobRead] = None
+    message: str = "Cleared stuck analyzing state"

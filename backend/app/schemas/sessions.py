@@ -12,7 +12,13 @@ from app.db.enums import SourceType
 
 SourceTypeLiteral = Literal["upload", "webcam", "phone_rtsp"]
 SessionStatusLiteral = Literal[
-    "draft", "ready", "analyzing", "complete", "error", "purged_video"
+    "draft",
+    "ready",
+    "analyzing",
+    "live",
+    "complete",
+    "error",
+    "purged_video",
 ]
 
 
@@ -54,6 +60,7 @@ class SessionRead(BaseModel):
     source_type: SourceTypeLiteral
     status: SessionStatusLiteral
     source_url: Optional[str] = None
+    secondary_source_url: Optional[str] = None
     video_path: Optional[str] = None
     current_mode: Optional[str] = None
     started_at: Optional[datetime] = None

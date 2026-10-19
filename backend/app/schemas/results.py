@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -26,6 +26,7 @@ class WindowPayload(BaseModel):
     candidate_decline: bool = False
     dominant_cue: Optional[str] = None
     data_quality_note: Optional[str] = None
+    seat_stats: Optional[List[Dict[str, Any]]] = None
 
 
 class EventPayload(BaseModel):
@@ -37,6 +38,10 @@ class EventPayload(BaseModel):
     teaching_mode: Optional[str] = None
     dominant_cue: Optional[str] = None
     note: Optional[str] = None
+    kind: Optional[str] = "orientation_decline"
+    seat_ids: Optional[List[str]] = None
+    group_label: Optional[str] = None
+    lecturer_feedback: Optional[str] = None
 
 
 class WorkerResultPayload(BaseModel):
@@ -62,6 +67,7 @@ class WindowRead(BaseModel):
     candidate_decline: bool = False
     dominant_cue: Optional[str] = None
     data_quality_note: Optional[str] = None
+    seat_stats_json: Optional[Any] = None
 
     model_config = {"from_attributes": True}
 
@@ -84,6 +90,10 @@ class EventRead(BaseModel):
     teaching_mode: Optional[str] = None
     dominant_cue: Optional[str] = None
     note: Optional[str] = None
+    kind: Optional[str] = None
+    seat_ids_json: Optional[Any] = None
+    group_label: Optional[str] = None
+    lecturer_feedback: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

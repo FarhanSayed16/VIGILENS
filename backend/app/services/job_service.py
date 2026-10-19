@@ -18,6 +18,7 @@ from app.cache.redis_client import (
     force_clear_analysis_lock,
     get_analysis_lock_holder,
     get_job_status_cache,
+    refresh_analysis_lock,
     release_analysis_lock,
     set_job_status_cache,
     try_acquire_analysis_lock,
@@ -27,7 +28,7 @@ from app.core.settings import get_settings
 from app.db.enums import JobStatus, SessionStatus, SourceType
 from app.db.models import AnalysisJob, ModeChange, RoomConfig, Session as SessionModel, Topic
 from app.db.session import SessionLocal
-from app.schemas.jobs import AnalysisStartResponse, JobRead
+from app.schemas.jobs import AnalysisRecoverResponse, AnalysisStartResponse, JobRead
 from app.schemas.results import WorkerResultPayload
 from app.services import result_service
 
@@ -95,6 +96,92 @@ def get_job(db: Session, job_id: int) -> JobRead:
     if job is None:
         raise NotFoundError(f"Job {job_id} not found")
     return _to_job_read(job)
+
+
+def get_latest_job(db: Session, session_id: int) -> Optional[JobRead]:
+    """Most recent analysis job for a session, or None."""
+    row = db.scalars(
+        select(SessionModel).where(SessionModel.id == session_id)
+    ).first()
+    if row is None:
+        raise NotFoundError(f"Session {session_id} not found")
+    job = db.scalars(
+        select(AnalysisJob)
+        .where(AnalysisJob.session_id == session_id)
+        .order_by(AnalysisJob.id.desc())
+        .limit(1)
+    ).first()
+    if job is None:
+        return None
+    return _to_job_read(job)
+
+
+def recover_stuck_analysis(db: Session, session_id: int) -> AnalysisRecoverResponse:
+    """
+    If session is analyzing but no active job holds the lock, clear the orphan
+    state so the lecturer can re-run.
+    """
+    row = db.scalars(
+        select(SessionModel).where(SessionModel.id == session_id)
+    ).first()
+    if row is None:
+        raise NotFoundError(f"Session {session_id} not found")
+
+    active = db.scalars(
+        select(AnalysisJob).where(
+            AnalysisJob.session_id == session_id,
+            AnalysisJob.status.in_(
+                [JobStatus.QUEUED.value, JobStatus.RUNNING.value]
+            ),
+        )
+    ).first()
+    holder = get_analysis_lock_holder()
+    holder_is_ours = False
+    if holder is not None:
+        hj = db.get(AnalysisJob, holder)
+        holder_is_ours = hj is not None and hj.session_id == session_id
+
+    if active is not None and holder_is_ours:
+        raise ConflictError(
+            "Analysis is still running — wait for it to finish or start a new run to supersede",
+            details={"job_id": active.id},
+        )
+
+    # Cancel any queued/running rows without a live lock (orphans)
+    _supersede_unfinished(db, session_id)
+
+    if row.status == SessionStatus.ANALYZING.value:
+        latest = db.scalars(
+            select(AnalysisJob)
+            .where(AnalysisJob.session_id == session_id)
+            .order_by(AnalysisJob.id.desc())
+            .limit(1)
+        ).first()
+        if latest and latest.status == JobStatus.DONE.value:
+            row.status = SessionStatus.COMPLETE.value
+        elif latest and latest.status == JobStatus.ERROR.value:
+            row.status = SessionStatus.ERROR.value
+        else:
+            row.status = (
+                SessionStatus.READY.value
+                if _source_ready(row)
+                else SessionStatus.DRAFT.value
+            )
+        db.commit()
+        logger.info(
+            "Recovered stuck analyzing session %s → %s", session_id, row.status
+        )
+
+    if holder is not None and holder_is_ours:
+        force_clear_analysis_lock()
+
+    latest_read = get_latest_job(db, session_id)
+    return AnalysisRecoverResponse(
+        recovered=True,
+        session_status=row.status,
+        job=latest_read,
+        message="Cleared stuck analyzing state — you can start analysis again",
+    )
 
 
 def _supersede_unfinished(db: Session, session_id: int) -> List[int]:
@@ -230,7 +317,12 @@ def start_analysis(db: Session, session_id: int) -> AnalysisStartResponse:
         daemon=True,
     )
     thread.start()
-    logger.info("Started analysis job_id=%s session_id=%s", job.id, session_id)
+    logger.info(
+        "Started analysis job_id=%s session_id=%s use_fake=%s",
+        job.id,
+        session_id,
+        get_settings().use_fake_worker,
+    )
 
     read = _to_job_read(job, stage="queued")
     return AnalysisStartResponse(**read.model_dump())
@@ -366,6 +458,7 @@ def _execute_job(db: Session, job_id: int, session_id: int) -> None:
             if j.status == JobStatus.QUEUED.value:
                 j.status = JobStatus.RUNNING.value
             db.commit()
+            refresh_analysis_lock(job_id)
             _publish(job_id, session_id, JobStatus.RUNNING.value, float(pct), stage)
         except Exception as exc:  # noqa: BLE001
             logger.debug("progress update failed: %s", type(exc).__name__)
@@ -381,6 +474,12 @@ def _execute_job(db: Session, job_id: int, session_id: int) -> None:
     if room and isinstance(room.seat_regions_json, list):
         seat_regions = room.seat_regions_json
 
+    facing_mode = None
+    if room and isinstance(room.camera_defaults, dict):
+        facing_mode = room.camera_defaults.get("facing_mode")
+        if not facing_mode and room.camera_defaults.get("placement") == "facing_class":
+            facing_mode = "toward_camera"
+
     contract = JobContract(
         session_id=session_id,
         job_id=job_id,
@@ -390,6 +489,7 @@ def _execute_job(db: Session, job_id: int, session_id: int) -> None:
         seat_count=seat_count,
         seat_regions=seat_regions,
         target_roi=room.target_roi_json if room else None,
+        facing_mode=str(facing_mode) if facing_mode else None,
         topics=topics,
         modes=modes,
         duration_sec=duration,
