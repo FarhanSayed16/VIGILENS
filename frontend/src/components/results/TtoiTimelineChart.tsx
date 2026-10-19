@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   Area,
   CartesianGrid,
@@ -24,6 +24,7 @@ export type ChartRow = {
   coverage_pct: number | null;
   windowId: number;
   label: string;
+  quality: string;
 };
 
 type Props = {
@@ -80,17 +81,21 @@ function CustomTooltip({
       }}
     >
       <div style={{ fontWeight: 650, marginBottom: 4 }}>{row.label}</div>
-      <div>TTOI: {row.ttoi != null ? row.ttoi.toFixed(1) : "—"}</div>
       <div>
-        Band:{" "}
+        Faced the front:{" "}
+        {row.ttoi != null ? `${row.ttoi.toFixed(0)}%` : "—"}
+      </div>
+      <div>
+        Range:{" "}
         {row.ttoi_lo != null && row.ttoi_hi != null
-          ? `${row.ttoi_lo.toFixed(0)}–${row.ttoi_hi.toFixed(0)}`
+          ? `${row.ttoi_lo.toFixed(0)}–${row.ttoi_hi.toFixed(0)}%`
           : "—"}
       </div>
       <div>
-        Coverage:{" "}
+        Camera clear:{" "}
         {row.coverage_pct != null ? `${row.coverage_pct.toFixed(0)}%` : "—"}
       </div>
+      <div>Measurement: {row.quality}</div>
     </div>
   );
 }
@@ -105,15 +110,26 @@ export function TtoiTimelineChart({
 }: Props) {
   const data: ChartRow[] = useMemo(
     () =>
-      windows.map((w) => ({
-        t: (w.start_sec + w.end_sec) / 2,
-        ttoi: w.ttoi,
-        ttoi_lo: w.ttoi_lo,
-        ttoi_hi: w.ttoi_hi,
-        coverage_pct: w.coverage_pct,
-        windowId: w.id,
-        label: `${formatElapsed(w.start_sec)}–${formatElapsed(w.end_sec)}`,
-      })),
+      windows.map((w) => {
+        let quality = "Good measurement";
+        if (w.data_quality_note === "insufficient_coverage") {
+          quality = "Camera couldn’t measure";
+        } else if (w.data_quality_note) {
+          quality = w.data_quality_note.replace(/_/g, " ");
+        } else if (w.candidate_decline) {
+          quality = "Possible drop";
+        }
+        return {
+          t: (w.start_sec + w.end_sec) / 2,
+          ttoi: w.ttoi,
+          ttoi_lo: w.ttoi_lo,
+          ttoi_hi: w.ttoi_hi,
+          coverage_pct: w.coverage_pct,
+          windowId: w.id,
+          label: `${formatElapsed(w.start_sec)}–${formatElapsed(w.end_sec)}`,
+          quality,
+        };
+      }),
     [windows],
   );
 
@@ -129,12 +145,17 @@ export function TtoiTimelineChart({
   );
 
   const selected = windows.find((w) => w.id === selectedWindowId);
+  const reduceMotion = useReducedMotion();
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={reduceMotion ? false : { opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      transition={
+        reduceMotion
+          ? { duration: 0 }
+          : { duration: 0.35, ease: [0.22, 1, 0.36, 1] }
+      }
       style={{ width: "100%", height: 320 }}
     >
       <ResponsiveContainer>
@@ -182,7 +203,7 @@ export function TtoiTimelineChart({
             fontSize={11}
             width={36}
             label={{
-              value: "TTOI",
+              value: "Faced front %",
               angle: -90,
               position: "insideLeft",
               style: { fill: "#5a6b7d", fontSize: 11 },
@@ -237,9 +258,10 @@ export function TtoiTimelineChart({
               x2={selected.end_sec}
               y1={0}
               y2={100}
-              fill="rgba(15, 118, 110, 0.08)"
+              fill="rgba(15, 118, 110, 0.14)"
               stroke="#0f766e"
-              strokeOpacity={0.5}
+              strokeOpacity={0.85}
+              strokeWidth={2}
             />
           ) : null}
 

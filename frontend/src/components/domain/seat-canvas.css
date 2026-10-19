@@ -14,6 +14,10 @@
   cursor: crosshair;
 }
 
+.seat-canvas.click-target {
+  cursor: cell;
+}
+
 .seat-canvas img {
   width: 100%;
   height: 100%;
@@ -21,6 +25,16 @@
   display: block;
   background: #0f172a;
   pointer-events: none;
+}
+
+/* Overlay aligned to the contained image (not letterbox bars) */
+.seat-canvas-stage {
+  position: absolute;
+  pointer-events: none;
+}
+
+.seat-canvas-stage .region {
+  pointer-events: auto;
 }
 
 .seat-canvas-empty {

@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import {
   CartesianGrid,
   Line,
@@ -16,23 +16,31 @@ type Props = {
 };
 
 export function SecondaryCueCharts({ windows }: Props) {
+  const reduceMotion = useReducedMotion();
   const data = windows.map((w) => ({
     t: (w.start_sec + w.end_sec) / 2,
     head_down: w.head_down_cue_pct,
     hand_raise: w.hand_raise_events ?? 0,
   }));
+  const enter = reduceMotion
+    ? { initial: false as const, transition: { duration: 0 } }
+    : {
+        initial: { opacity: 0, y: 8 },
+        transition: { delay: 0.08, duration: 0.3 },
+      };
 
   return (
     <div className="secondary-charts">
       <motion.div
         className="chart-card"
-        initial={{ opacity: 0, y: 8 }}
+        initial={enter.initial}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.08, duration: 0.3 }}
+        transition={enter.transition}
       >
-        <h2>Head-down cue rate</h2>
+        <h2>Looking down</h2>
         <p className="chart-sub">
-          Observable cue share — not a boredom or attention score.
+          Share of clear samples with head tilted down — posture only, not boredom
+          or attention.
         </p>
         <div style={{ width: "100%", height: 160 }}>
           <ResponsiveContainer>
@@ -64,12 +72,18 @@ export function SecondaryCueCharts({ windows }: Props) {
 
       <motion.div
         className="chart-card"
-        initial={{ opacity: 0, y: 8 }}
+        initial={enter.initial}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.14, duration: 0.3 }}
+        transition={
+          reduceMotion
+            ? { duration: 0 }
+            : { delay: 0.14, duration: 0.3 }
+        }
       >
-        <h2>Hand-raise events</h2>
-        <p className="chart-sub">Counts per window — separate from TTOI.</p>
+        <h2>Hand raises</h2>
+        <p className="chart-sub">
+          Raises counted each half-minute — separate from “faced the front.”
+        </p>
         <div style={{ width: "100%", height: 160 }}>
           <ResponsiveContainer>
             <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
