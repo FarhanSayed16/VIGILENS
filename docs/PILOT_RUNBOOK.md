@@ -1,14 +1,26 @@
-# Pilot runbook — consented classroom lecture (Phase 22)
+# Pilot runbook — Phase 22 validation
 
 | | |
 |---|---|
-| **Consent** | Principal, Dean, and student consents already obtained (project fact) |
-| **Rule** | Use **only** lectures under that protocol. **Never** commit classroom video to git |
+| **MVP path** | **Sample / public clip** — no class recording required |
+| **Optional later** | Consented classroom lecture (institutional protocol) |
+| **Rule** | **Never** commit classroom video to git |
 | **Default retention** | Analyse → keep aggregates → **purge raw video** |
 
 ---
 
-## Before class
+## MVP path (recommended) — sample clip
+
+1. Create a Room; draw seat boxes covering people in the sample frame.  
+2. Create a Session → upload a short MP4 (or use `uploads/_smoke/phase20_bus_clip.mp4` from smoke).  
+3. Add a topic + mode → Run analysis with `USE_FAKE_WORKER=false`.  
+4. Open Results (coverage hatch / TTOI honesty) → Export CSV → confirm purge.  
+5. Optional tooling: `python worker/scripts/pilot_dry_run.py` · `compare_declines.py`.  
+6. Record acceptance in [`PILOT_SESSION.md`](./PILOT_SESSION.md) Section A.
+
+---
+
+## Optional — before a real class (only if you choose)
 
 1. Confirm consent covers this session (existing institutional protocol).  
 2. Create / open a **Room** in the app; draw seats + teaching-target ROI on a still from the **real camera** placement.  
