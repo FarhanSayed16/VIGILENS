@@ -1,4 +1,4 @@
-"""Session lifecycle: list, create, get, summary stub, cascade delete."""
+"""Session lifecycle: list, create, get, summary, cascade delete."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.cache.keys import invalidate_session_caches
 from app.core.exceptions import NotFoundError
 from app.core.settings import get_settings
-from app.db.enums import SessionStatus
+from app.db.enums import SessionStatus, SourceType
 from app.db.models import RoomConfig, Session as SessionModel
 from app.schemas.sessions import (
     SessionCreate,
@@ -75,6 +75,7 @@ def _to_read(row: SessionModel) -> SessionRead:
         source_type=row.source_type,  # type: ignore[arg-type]
         status=row.status,  # type: ignore[arg-type]
         source_url=_redact_source_url(row.source_url),
+        secondary_source_url=row.secondary_source_url,
         video_path=_public_video_path(row.video_path),
         current_mode=row.current_mode,
         started_at=row.started_at,
@@ -125,13 +126,32 @@ def create_session(db: Session, payload: SessionCreate) -> SessionRead:
     if room is None:
         raise NotFoundError(f"Room {payload.room_config_id} not found")
 
+    source_url = payload.source_url
+    status = SessionStatus.DRAFT.value
+
+    # Live path: auto-attach webcam so lecturers skip the Setup detour
+    if payload.source_type == SourceType.WEBCAM.value:
+        if not source_url:
+            idx = 0
+            if isinstance(room.camera_defaults, dict):
+                raw = room.camera_defaults.get("webcam_index")
+                if raw is not None:
+                    try:
+                        idx = int(raw)
+                    except (TypeError, ValueError):
+                        idx = 0
+            source_url = f"webcam:{idx}"
+        status = SessionStatus.READY.value
+    elif payload.source_type == SourceType.PHONE_RTSP.value and source_url:
+        status = SessionStatus.READY.value
+
     row = SessionModel(
         title=payload.title,
         room_config_id=payload.room_config_id,
         source_type=payload.source_type,
-        source_url=payload.source_url,
+        source_url=source_url,
         started_at=payload.started_at,
-        status=SessionStatus.DRAFT.value,
+        status=status,
     )
     db.add(row)
     db.commit()

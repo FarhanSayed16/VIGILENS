@@ -5,10 +5,11 @@
 version: 1
 
 sampling:
-  frames_per_second: 1.5          # target sample rate ~1–2 fps
+  # Live cockpit boosts preview (~18 fps) and metrics (≥2.5 fps) separately.
+  frames_per_second: 2.5          # metric sample rate for live / batch
   window_seconds: 30              # TTOI aggregation window
   partial_window_min_seconds: 15  # below this → partial_window, no decline alert
-  min_usable_sample_frac: 0.5     # seat usable in window if ≥ this fraction observable
+  min_usable_sample_frac: 0.35    # seat usable in window if ≥ this fraction observable
 
 orientation:
   # Tier-2 head yaw' band (MediaPipe/solvePnP). Locked product start: 30°.
@@ -23,7 +24,8 @@ orientation:
 
 coverage:
   min_coverage_pct: 70            # below → insufficient visual evidence (null TTOI)
-  min_usable_seats: 5             # also suppress declines if fewer usable seats
+  # 1 = solo desk / webcam tests; raise to ~5 for multi-student classrooms
+  min_usable_seats: 1
 
 calibration:
   occupied_seat_min_fraction: 0.5 # seat occupied if person present in ≥50% of calib samples
@@ -45,7 +47,7 @@ modes:
   respect_teaching_modes: true
 
 models:
-  yolo_pose_weights: yolov8n-pose.pt   # Ultralytics auto-download on first run
+  yolo_pose_weights: models/yolov8n-pose.pt   # copy or Ultralytics download into models/
   mediapipe_face_landmarker: models/face_landmarker.task
 
 privacy:

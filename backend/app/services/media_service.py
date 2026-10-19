@@ -117,6 +117,15 @@ def _safe_unlink(video_path: Optional[str]) -> None:
         logger.warning("Could not purge video %s: %s", video_path, type(exc).__name__)
 
 
+def _refuse_if_analyzing(row) -> None:
+    if row.status == SessionStatus.ANALYZING.value:
+        raise AppError(
+            "Cannot change media while analysis is running — wait for the job to finish or re-run to supersede",
+            status_code=409,
+            code="media_while_analyzing",
+        )
+
+
 def upload_video(
     db: Session,
     session_id: int,
@@ -129,6 +138,7 @@ def upload_video(
     max_bytes = int(settings.max_upload_mb) * 1024 * 1024
 
     row = _get_session_row(db, session_id)
+    _refuse_if_analyzing(row)
 
     safe_name = _safe_filename(filename)
     ext = Path(safe_name).suffix.lower()
@@ -210,6 +220,7 @@ def upload_video(
 
 def set_source(db: Session, session_id: int, payload: SourceUpdate) -> SessionRead:
     row = _get_session_row(db, session_id)
+    _refuse_if_analyzing(row)
     row.source_type = payload.source_type
     row.source_url = payload.source_url
 

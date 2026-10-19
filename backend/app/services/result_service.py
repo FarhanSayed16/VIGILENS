@@ -76,6 +76,7 @@ def _window_row(session_id: int, w: WindowPayload) -> Window:
         candidate_decline=w.candidate_decline,
         dominant_cue=w.dominant_cue,
         data_quality_note=w.data_quality_note,
+        seat_stats_json=w.seat_stats,
     )
 
 
@@ -90,7 +91,50 @@ def _event_row(session_id: int, e: EventPayload) -> Event:
         teaching_mode=e.teaching_mode,
         dominant_cue=e.dominant_cue,
         note=e.note,
+        kind=e.kind or "orientation_decline",
+        seat_ids_json=e.seat_ids,
+        group_label=e.group_label,
+        lecturer_feedback=e.lecturer_feedback,
     )
+
+
+def clear_session_results(db: Session, session_id: int) -> None:
+    db.execute(delete(Event).where(Event.session_id == session_id))
+    db.execute(delete(Window).where(Window.session_id == session_id))
+    db.flush()
+
+
+def append_window(db: Session, session_id: int, w: WindowPayload) -> Window:
+    """Append one live window (does not delete prior rows)."""
+    row = _window_row(session_id, w)
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    invalidate_session_caches(session_id)
+    return row
+
+
+def replace_events_only(
+    db: Session, session_id: int, events: List[EventPayload]
+) -> int:
+    db.execute(delete(Event).where(Event.session_id == session_id))
+    for e in events:
+        db.add(_event_row(session_id, e))
+    db.commit()
+    invalidate_session_caches(session_id)
+    return len(events)
+
+
+def set_event_feedback(
+    db: Session, session_id: int, event_id: int, feedback: str
+) -> Event:
+    row = db.get(Event, event_id)
+    if row is None or row.session_id != session_id:
+        raise NotFoundError(f"Event {event_id} not found")
+    row.lecturer_feedback = feedback
+    db.commit()
+    db.refresh(row)
+    return row
 
 
 def _window_to_read(row: Window) -> WindowRead:
