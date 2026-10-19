@@ -20,6 +20,11 @@ export type WindowPoint = {
   candidate_decline: boolean;
   dominant_cue: string | null;
   data_quality_note: string | null;
+  seat_stats_json?: Array<{
+    seat_id: string;
+    orientation_pct: number | null;
+    usable: boolean;
+  }> | null;
 };
 
 export type WindowListResponse = {
@@ -40,6 +45,10 @@ export type DeclineEvent = {
   teaching_mode: string | null;
   dominant_cue: string | null;
   note: string | null;
+  kind?: string | null;
+  seat_ids_json?: string[] | null;
+  group_label?: string | null;
+  lecturer_feedback?: string | null;
 };
 
 export type EventListResponse = {

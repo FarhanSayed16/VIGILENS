@@ -1,34 +1,27 @@
 # Frontend (React + Vite + TypeScript)
 
-Phase **4** scaffold: Daylight Lecture theme, app shell, stub routes.
+Lecturer UI — Daylight Lecture theme, session subnav, Results charts, Export/Pulse/Settings.
 
 ## Run
 
-```bash
+```powershell
 cd frontend
 npm install
 npm run dev
 ```
 
-Open http://localhost:5173
-
-- Login is a **scaffold gate** (any non-empty password). Real JWT arrives in Phase 6.
-- API base URL: `VITE_API_BASE_URL` (see `.env.example`)
+Open http://localhost:5173 — API must be on `VITE_API_BASE_URL` (default `http://localhost:8000`).
 
 ## Layout
 
 ```text
 src/
-├── app/           # shell, router, auth gate
-├── pages/         # route pages (stubs → filled later)
+├── app/           # shell, router, auth
+├── pages/         # login → sessions → setup → live → analysis → results → export …
 ├── components/    # ui + domain + charts
-├── api/           # fetch client
-├── styles/        # tokens + global + shell
-├── stores/        # scaffold auth flag
-├── hooks/, utils/, assets/, features/
+├── api/
+├── styles/        # tokens + shell
 └── main.tsx
 ```
 
-## Theme
-
-**Daylight Lecture** — teal accent, amber for review signals, graphite for weak coverage (tokens in `styles/tokens.css`). Icons: Lucide. Motion: Framer Motion page transitions with `prefers-reduced-motion` respect.
+Motion respects `prefers-reduced-motion`. Full stack: [../README.md](../README.md).

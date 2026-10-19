@@ -28,12 +28,33 @@ export type AnalysisJob = {
   message?: string;
 };
 
+export type AnalysisRecover = {
+  recovered: boolean;
+  session_status: string;
+  job: AnalysisJob | null;
+  message: string;
+};
+
 export function startAnalysis(sessionId: number): Promise<AnalysisJob> {
   return apiPost<AnalysisJob>(`/sessions/${sessionId}/analysis`);
 }
 
 export function getJob(jobId: number): Promise<AnalysisJob> {
   return apiGet<AnalysisJob>(`/jobs/${jobId}`);
+}
+
+export async function getLatestJob(
+  sessionId: number,
+): Promise<AnalysisJob | null> {
+  // API returns null (200) when no job exists yet
+  const job = await apiGet<AnalysisJob | null>(
+    `/sessions/${sessionId}/analysis/latest`,
+  );
+  return job ?? null;
+}
+
+export function recoverAnalysis(sessionId: number): Promise<AnalysisRecover> {
+  return apiPost<AnalysisRecover>(`/sessions/${sessionId}/analysis/recover`);
 }
 
 export const JOB_STAGES: { id: JobStage; label: string }[] = [
@@ -48,4 +69,8 @@ export function stageIndex(stage: JobStage | null | undefined): number {
   if (stage === "error" || stage === "cancelled") return -2;
   const i = JOB_STAGES.findIndex((s) => s.id === stage);
   return i;
+}
+
+export function isJobActive(job: AnalysisJob | null | undefined): boolean {
+  return job?.status === "queued" || job?.status === "running";
 }
