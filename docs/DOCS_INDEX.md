@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Purpose** | Map of all planning docs and which one to open for what |
-| **Date** | 17 October 2026 |
+| **Date** | 18 October 2026 |
 | **Execution entry point** | [`MASTER_PLAN.md`](./MASTER_PLAN.md) |
 
 ---
@@ -18,6 +18,18 @@
 | **1d — Checkpoint B** | [`CHECKPOINT_B.md`](./CHECKPOINT_B.md) | Real-worker analysis sign-off (**Phase 20 complete**) |
 | **1e — Pilot** | [`PILOT_RUNBOOK.md`](./PILOT_RUNBOOK.md) | Consented lecture path + [`PILOT_LIMITATIONS.md`](./PILOT_LIMITATIONS.md) |
 | **1f — Audit 1–23** | [`AUDIT_PHASES_1_23.md`](./AUDIT_PHASES_1_23.md) | Gaps, bugs, P0–P2 backlog before Phase 24 |
+| **1g — Demo dry-run** | [`DEMO_DRY_RUN.md`](./DEMO_DRY_RUN.md) | Phase 23.4 sample-clip demo script |
+| **1h — Privacy review** | [`PRIVACY_REVIEW_PHASE23.md`](./PRIVACY_REVIEW_PHASE23.md) | Phase 23.3 lightweight sign-off |
+| **1h2 — Privacy live** | [`PRIVACY_REVIEW_PHASE32.md`](./PRIVACY_REVIEW_PHASE32.md) | Live cockpit privacy notes |
+| **1i — Checkpoint C** | [`CHECKPOINT_C.md`](./CHECKPOINT_C.md) | **MVP complete** delivery sign-off |
+| **1j — Evaluation** | [`EVALUATION_NOTES.md`](./EVALUATION_NOTES.md) | Metrics summary + claim boundaries |
+| **1k — Limitations** | [`LIMITATIONS.md`](./LIMITATIONS.md) | Orientation ≠ learning |
+| **1l — Related work** | [`RELATED_WORK.md`](./RELATED_WORK.md) | Not first-of-kind honesty |
+| **1m — Stage-A card** | [`MODEL_CARD_STAGE_A.md`](./MODEL_CARD_STAGE_A.md) | Rules + pretrained detectors |
+| **1n — Hardening pass** | [`POST_MVP_HARDENING.md`](./POST_MVP_HARDENING.md) | Gap fixes after Checkpoint C |
+| **1o — Quick calibration** | [`QUICK_CALIBRATION.md`](./QUICK_CALIBRATION.md) | Viewpoint presets + detect seats |
+| **1p — Live cockpit** | [`LIVE_COCKPIT_PLAN.md`](./LIVE_COCKPIT_PLAN.md) | Phase 25+ Start/Stop hybrid cockpit |
+| **1q — Checkpoint D** | [`CHECKPOINT_D.md`](./CHECKPOINT_D.md) | Live Cockpit Hybrid sign-off |
 | **2 — Product truth** | [`VIGILENS_COMPLETE_IDEA.md`](./VIGILENS_COMPLETE_IDEA.md) | What VIGILENS is/isn’t, TTOI, schema, API list, privacy |
 | **3 — Backend detail** | [`BACKEND_PLAN.md`](./BACKEND_PLAN.md) | Modules, services, Redis, job lifecycle, folder plan |
 | **4 — Frontend detail** | [`FRONTEND_PLAN.md`](./FRONTEND_PLAN.md) | Pages, theme, nav, components, motion |
@@ -56,7 +68,7 @@ Foundation → Backend + Frontend (with fake worker) → Checkpoint A
 |---|---|---|
 | **A** | Full app E2E with fake vision | **SIGNED OFF** (Phase 15, 18 Oct 2026) |
 | **B** | Real YOLO/MediaPipe analysis in the app | **SIGNED OFF** (Phase 20, 18 Oct 2026) |
-| **C** | MVP complete (pilot + docs + demo) | After Phase 24 |
+| **C** | MVP complete (pilot + docs + demo) | **SIGNED OFF** (Phase 24, 18 Oct 2026) |
 
 ---
 
@@ -78,8 +90,9 @@ Foundation → Backend + Frontend (with fake worker) → Checkpoint A
 | AIML confirmation | Locked |
 | Backend plan | Locked |
 | Frontend plan | Locked |
-| Master plan | Locked for execution |
+| Master plan | **Phases 1–24 complete**; Checkpoint C signed off |
 | Phase 1 locks | **Complete** (17 Oct 2026) |
+| Checkpoint C | **SIGNED OFF** (18 Oct 2026) |
 | This index | Navigation aid |
 
 ## Execution progress
@@ -107,8 +120,8 @@ Foundation → Backend + Frontend (with fake worker) → Checkpoint A
 | **19 — TTOI / coverage / declines** | **DONE** — offline metrics + unit tests + schema JSON |
 | **20 — Real worker integration** | **DONE** — Checkpoint B; `USE_FAKE_WORKER` flag |
 | **21 — Threshold tuning** | **DONE** — see [`THRESHOLDS.md`](./THRESHOLDS.md) |
-| **22 — Pilot classroom video** | **DONE** — runbook + validation tooling; fill `PILOT_SESSION.md` on first lecture |
-| **23 — Hardening / demo polish** | **Next** (deferred; see audit P0/P1 fix pass) |
-| 24 | Pending |
+| **22 — Pilot / validation** | **DONE** — sample-clip MVP path (`PILOT_SESSION.md` §A) |
+| **23 — Hardening / demo polish** | **DONE** — subnav, a11y, privacy review, demo dry-run |
+| **24 — Delivery / Checkpoint C** | **DONE** — see [`CHECKPOINT_C.md`](./CHECKPOINT_C.md) |
 
 **Docker (verified):** `docker compose up -d` → `vigilens-postgres` + `vigilens-redis` healthy. Use **Python 3.12** for backend venv (`py -3.12 -m venv .venv`); Python 3.14 lacks many wheels.

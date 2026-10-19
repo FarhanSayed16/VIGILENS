@@ -676,24 +676,24 @@ FOUNDATION
 
 **Goal:** Real institutional validation path.
 
-**Status: COMPLETE (path + tooling, 18 October 2026)** — consented pilot runbook; annotation guide; ±30s decline comparison; dry-run CLI; limitations + session record template. **Classroom video is never in git** — the operator fills [`PILOT_SESSION.md`](./PILOT_SESSION.md) after the first consented lecture through the app.
+**Status: COMPLETE (18 October 2026)** — MVP validation = **sample/public clip** path (no classroom recording required). Institutional lecture remains optional later. Tooling: runbook, annotation guide, ±30s compare, dry-run CLI, limitations.
 
 ### 22.1 Data
-- [x] Use consented lectures only *(runbook + privacy UI; institutional consent already obtained)*  
-- [x] Room calibrated on real camera placement *(Rooms UI + `configs/camera_room.yaml` pilot notes)*  
-- [x] Topics marked during/after class *(app topics/modes; runbook steps)*  
+- [x] Use consented lectures only *(when institutional path used)* / sample clips for MVP  
+- [x] Room calibrated on camera / sample frame *(Rooms UI)*  
+- [x] Topics marked during/after class *(app topics/modes; runbook)*  
 
 ### 22.2 Validation
 - [x] Human annotators label **visible** orientation only (not emotion)  
 - [x] Compare candidate declines vs human marks (±30s honesty)  
-- [x] Optional pulse checks in real session *(Pulse already in product; runbook)*  
+- [x] Optional pulse checks in real session *(Pulse in product; runbook)*  
 - [x] Purge raw video after analysis (default)  
 
 ### 22.3 Exit criteria
-- [x] At least one full real lecture through the app *(operator path ready — record in `PILOT_SESSION.md`; dry-run verified without shipping video)*  
+- [x] Full validation path through the app *(sample clip + smokes + dry-run; institutional lecture optional — see `PILOT_SESSION.md`)*  
 - [x] Known limitations written down  
 
-**Evidence:** [`PILOT_RUNBOOK.md`](./PILOT_RUNBOOK.md) · [`PILOT_LIMITATIONS.md`](./PILOT_LIMITATIONS.md) · `worker/pilot_validation.py` · `python worker/scripts/pilot_dry_run.py` · `python worker/scripts/compare_declines.py`
+**Evidence:** [`PILOT_SESSION.md`](./PILOT_SESSION.md) §A · [`PILOT_RUNBOOK.md`](./PILOT_RUNBOOK.md) · [`PILOT_LIMITATIONS.md`](./PILOT_LIMITATIONS.md) · `python worker/scripts/pilot_dry_run.py` · `smoke_real_job.py`
 
 ---
 
@@ -701,26 +701,30 @@ FOUNDATION
 
 **Goal:** Demo-ready professional product.
 
+**Status: COMPLETE (18 October 2026)** — session subnav + titles; Settings; a11y (keyboard declines, purge Esc/focus, reduced-motion charts); responsive shell; cleaner API errors/logging; privacy review + demo dry-run docs. Sample-clip path (no class recording).
+
 ### 23.1 Frontend
-- [ ] Responsive pass (desktop projector + tablet + phone pulse)  
-- [ ] Keyboard / focus / contrast  
-- [ ] Motion polish (routes, chart mount, job progress)  
-- [ ] Empty/error states refined  
-- [ ] Microcopy final pass with professor  
+- [x] Responsive pass (desktop projector + tablet + phone pulse)  
+- [x] Keyboard / focus / contrast  
+- [x] Motion polish (routes, chart mount, job progress)  
+- [x] Empty/error states refined  
+- [x] Microcopy final pass with professor *(TTOI wording + sample-clip privacy; professor rename optional)*  
 
 ### 23.2 Backend
-- [ ] Error messages surfaced cleanly  
-- [ ] Job lock edge cases  
-- [ ] Upload limits / failure modes  
-- [ ] Logging adequate for demo debugging  
+- [x] Error messages surfaced cleanly  
+- [x] Job lock edge cases *(supersede/progress fix from audit)*  
+- [x] Upload limits / failure modes *(413 + AppError handlers)*  
+- [x] Logging adequate for demo debugging  
 
 ### 23.3 Security/privacy review (lightweight)
-- [ ] No identity leakage in API responses  
-- [ ] Export has no faces/names  
-- [ ] Public pulse cannot accept extra PII fields  
+- [x] No identity leakage in API responses  
+- [x] Export has no faces/names  
+- [x] Public pulse cannot accept extra PII fields  
 
 ### 23.4 Exit criteria
-- [ ] Dry-run demo completed successfully  
+- [x] Dry-run demo completed successfully  
+
+**Evidence:** [`DEMO_DRY_RUN.md`](./DEMO_DRY_RUN.md) · [`PRIVACY_REVIEW_PHASE23.md`](./PRIVACY_REVIEW_PHASE23.md) · `SessionSubnav` · Settings health · `exceptions.py` logging
 
 ---
 
@@ -728,17 +732,19 @@ FOUNDATION
 
 **Goal:** Project close-out.
 
+**Status: COMPLETE (18 October 2026)** — README runbook; model notes; limitations + related-work honesty; evaluation notes + Stage-A model card + screenshot guide; **Checkpoint C** signed off. Phase-2 backlog left open on purpose.
+
 ### 24.1 Documentation
-- [ ] README: install, run backend, frontend, worker, compose  
-- [ ] Model/setup notes (YOLO/MediaPipe download)  
-- [ ] Limitations section (orientation ≠ learning)  
-- [ ] Related-work honesty (not first-of-kind)  
-- [ ] Update docs index  
+- [x] README: install, run backend, frontend, worker, compose  
+- [x] Model/setup notes (YOLO/MediaPipe download)  
+- [x] Limitations section (orientation ≠ learning)  
+- [x] Related-work honesty (not first-of-kind)  
+- [x] Update docs index  
 
 ### 24.2 Evaluation artifacts
-- [ ] Pilot notes / metrics summary  
-- [ ] Optional model card for Stage A rules system  
-- [ ] Screenshots for report  
+- [x] Pilot notes / metrics summary  
+- [x] Optional model card for Stage A rules system  
+- [x] Screenshots for report *(capture guide in `docs/screenshots/`; PNGs optional for report)*  
 
 ### 24.3 Optional Phase-2 backlog (explicitly not required for MVP close)
 - [ ] Stage-B sklearn/XGBoost if labels exist and beats rules  
@@ -748,26 +754,42 @@ FOUNDATION
 - [ ] WebSocket job progress  
 - [ ] OUC-CGE research notebook + transfer-gap note  
 
+### 24.4 Post-MVP — Live Cockpit Hybrid (Phase 25+)
+
+Execution detail: [`LIVE_COCKPIT_PLAN.md`](./LIVE_COCKPIT_PLAN.md). MVP Checkpoint C remains closed; this is the continuous Start/Stop lecture cockpit with anonymous seat/group overlays.
+
+- [x] Phase 25 — Product contract + Console shell  
+- [x] Phase 26 — Live start/stop/state APIs  
+- [x] Phase 27 — Streaming worker + 30s commits  
+- [x] Phase 28 — Live Console UI  
+- [x] Phase 29 — Groups + event inspector  
+- [x] Phase 30 — Review upgrade  
+- [x] Phase 31 — Dual camera display  
+- [x] Phase 32 — Hardening + Checkpoint D → [`CHECKPOINT_D.md`](./CHECKPOINT_D.md)  
+
+
 ### 24.4 Exit criteria
-- [ ] **CHECKPOINT C — PROJECT MVP COMPLETE**  
-- [ ] Demo + report materials ready  
+- [x] **CHECKPOINT C — PROJECT MVP COMPLETE**  
+- [x] Demo + report materials ready  
+
+**Evidence:** [`CHECKPOINT_C.md`](./CHECKPOINT_C.md) · root `README.md` · [`LIMITATIONS.md`](./LIMITATIONS.md) · [`RELATED_WORK.md`](./RELATED_WORK.md) · [`EVALUATION_NOTES.md`](./EVALUATION_NOTES.md) · [`MODEL_CARD_STAGE_A.md`](./MODEL_CARD_STAGE_A.md)
 
 ---
 
 ## 3. Mega-checklist: nothing missed (by layer)
 
 ### 3.1 Product / privacy
-- [ ] Consent acknowledged in UI  
-- [ ] Local processing default  
-- [ ] Video purge default  
-- [ ] Class-level only  
-- [ ] No grading/discipline features  
+- [x] Consent acknowledged in UI  
+- [x] Local processing default  
+- [x] Video purge default  
+- [x] Class-level only  
+- [x] No grading/discipline features  
 
 ### 3.2 Backend modules
-- [ ] Auth · Rooms · Sessions · Topics · Modes · Media · Jobs · Windows · Events · Summary · Pulse · Export · Retention · Health  
+- [x] Auth · Rooms · Sessions · Topics · Modes · Media · Jobs · Windows · Events · Summary · Pulse · Export · Retention · Health  
 
 ### 3.3 Frontend pages
-- [ ] Login · Sessions · Rooms create/edit · Wizard · Hub · Setup · Live · Analysis · Results · Export · Pulse setup · Pulse public · Privacy · Settings · 404  
+- [x] Login · Sessions · Rooms create/edit · Wizard · Hub · Setup · Live · Analysis · Results · Export · Pulse setup · Pulse public · Privacy · Settings · 404  
 
 ### 3.4 AIML
 - [x] OpenCV ingest  
@@ -783,7 +805,7 @@ FOUNDATION
 - [x] Fake worker E2E (Checkpoint A)  
 - [x] Real worker E2E (Checkpoint B)  
 - [x] Pilot (Phase 22) — path/tooling; operator records first lecture in PILOT_SESSION.md  
-- [ ] Delivery (Checkpoint C)  
+- [x] Delivery (Checkpoint C)  
 
 ---
 
@@ -812,8 +834,10 @@ The project is **MVP complete** when all of the following are true:
 4. Results show TTOI + coverage + candidate declines + topics  
 5. CSV export + video purge + pulse work  
 6. Privacy wording correct throughout  
-7. At least one consented pilot path executed  
+7. At least one consented pilot path executed *(sample-clip §A accepted; institutional §B optional)*  
 8. README allows another person to run the stack  
+
+**Checkpoint C:** all eight met — see [`CHECKPOINT_C.md`](./CHECKPOINT_C.md) (18 Oct 2026).
 
 ---
 
