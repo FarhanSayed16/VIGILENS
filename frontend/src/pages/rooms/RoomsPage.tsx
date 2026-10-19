@@ -52,8 +52,17 @@ export function RoomsPage() {
       {loading ? <p>Loading rooms…</p> : null}
 
       {!loading && !error && rooms.length === 0 ? (
-        <div className="page-stub">
-          <p>No rooms yet. Create one and draw seats on a calibration frame.</p>
+        <div className="empty-card">
+          <h2>No rooms yet</h2>
+          <p>
+            Create a room and draw seat regions plus a teaching target on a
+            calibration frame before starting sessions.
+          </p>
+          <div className="btn-row">
+            <Link className="btn-primary" to="/rooms/new">
+              <Plus size={16} /> Create room
+            </Link>
+          </div>
         </div>
       ) : null}
 
