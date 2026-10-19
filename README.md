@@ -3,162 +3,191 @@
 
 > **One-line pitch:** A local, privacy-first computer-vision system that shows a lecturer *when* class-level orientation toward the teaching target declines (TTOI), *how reliable* that reading is (coverage), and *which topic* was active — without identifying students or scoring individuals.
 
-**Runtime targets:** Python **3.10–3.12** (use **3.12** on this machine: `py -3.12 -m venv backend/.venv`) · Node.js **18+**  
-**Avoid Python 3.14 for now** — several pinned wheels fail to build.
+**MVP status:** Phases **1–24 complete** · Checkpoints **A / B / C** signed off  
+**Runtime:** Python **3.10–3.12** (prefer **3.12**: `py -3.12 -m venv .venv`) · Node.js **18+** · Docker for Postgres + Redis  
+**Avoid Python 3.14** — several pinned wheels fail to build.
 
 ---
 
-## Documentation (start here)
+## Documentation
 
 | Doc | Purpose |
 |---|---|
-| [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md) | **Execution checklist** — Phases 1–24 |
-| [`docs/DOCS_INDEX.md`](docs/DOCS_INDEX.md) | Map of all planning docs |
-| [`docs/PHASE1_LOCKS.md`](docs/PHASE1_LOCKS.md) | Locked product decisions (Phase 1 done) |
-| [`docs/VIGILENS_COMPLETE_IDEA.md`](docs/VIGILENS_COMPLETE_IDEA.md) | Product truth (TTOI, schema, API, privacy) |
-| [`docs/BACKEND_PLAN.md`](docs/BACKEND_PLAN.md) | Backend modules & contracts |
-| [`docs/FRONTEND_PLAN.md`](docs/FRONTEND_PLAN.md) | Pages, theme, UI plan |
-| [`docs/AIML_CONFIRMATION.md`](docs/AIML_CONFIRMATION.md) | Vision models & training policy |
-| [`docs/AUDIT_PHASES_1_23.md`](docs/AUDIT_PHASES_1_23.md) | Gaps / fix backlog through Phase 23 |
+| [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md) | Execution checklist (Phases 1–24) |
+| [`docs/DOCS_INDEX.md`](docs/DOCS_INDEX.md) | Map of all docs |
+| [`docs/CHECKPOINT_C.md`](docs/CHECKPOINT_C.md) | **MVP complete** sign-off |
+| [`docs/DEMO_DRY_RUN.md`](docs/DEMO_DRY_RUN.md) | ~10 min sample-clip demo script |
+| [`docs/VIGILENS_COMPLETE_IDEA.md`](docs/VIGILENS_COMPLETE_IDEA.md) | Product truth (TTOI, privacy, schema) |
+| [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) | Orientation ≠ learning; honest constraints |
+| [`docs/RELATED_WORK.md`](docs/RELATED_WORK.md) | Not first-of-kind — differentiation |
 | [`docs/THRESHOLDS.md`](docs/THRESHOLDS.md) | Pilot-start vision thresholds |
-
-**Current progress:** Phases **1–22** complete (app + real worker + pilot tooling). **Phase 23** (demo hardening / a11y) still open. See [`docs/DOCS_INDEX.md`](docs/DOCS_INDEX.md).
-
----
-
-## Executive overview
-
-**VIGILENS** is a reflective teaching tool: it analyses consented classroom video locally and produces an anonymous **class-level** timeline of observable orientation toward the teaching target (**TTOI**), with coverage/uncertainty and topic markers. It does **not** read minds, identify students, or grade anyone.
-
-### Core philosophy
-
-1. **Observable behaviour ≠ internal emotion** — looking down may be note-taking.
-2. **Class-level aggregation only** — no individual scores, no face recognition, no permanent student tracking.
-3. **Coverage first** — low evidence → “insufficient visual evidence,” not a fake score (~**70%** usable seats, tunable).
-4. **Rule-based TTOI first** — ML only if it beats the baseline on held-out local sessions.
-5. **Human validation** — annotator labelling + anonymous pulse checks.
+| [`models/README.md`](models/README.md) | YOLO / MediaPipe download notes |
 
 ---
 
-## System architecture
+## What it is / is not
+
+**Is:** Class-level **Teaching-Target Orientation Index (TTOI)** timeline + coverage gating + candidate declines + topics, from consented video processed **locally**.
+
+**Is not:** Mind-reading, emotion AI, face recognition, attendance, grading, or a “first ever attention detector.” See [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) and [`docs/RELATED_WORK.md`](docs/RELATED_WORK.md).
+
+---
+
+## Architecture
 
 ```text
-[ Laptop webcam / Mobile phone stream / Uploaded MP4 ]
-       │
-       ▼
-┌────────────────────────────────────────────────────────┐
-│ React Frontend (Vite)                                  │
-└───────────────────────┬────────────────────────────────┘
-                        │ REST
-┌───────────────────────▼────────────────────────────────┐
-│ FastAPI Backend                                        │
-└───────────┬─────────────────────────┬──────────────────┘
-            ▼                         ▼
-┌──────────────────────┐   ┌────────────────────────────┐
-│ PostgreSQL           │   │ Redis                      │
-└──────────┬───────────┘   └────────────▲───────────────┘
-           │                            │
-           ▼                            │
-┌────────────────────────────────────────────────────────┐
-│ Vision Worker (YOLOv8-pose + MediaPipe Face Landmarker)│
-└────────────────────────────────────────────────────────┘
-```
-
-**Locked stack:** FastAPI + React + PostgreSQL + Redis.  
-**Locked vision:** pretrained YOLOv8-pose + MediaPipe Face Landmarker.  
-**Thresholds start:** yaw **±30°**, pitch-down **~20°** (see `configs/default.yaml`).
-
----
-
-## Repository layout (Phase 2)
-
-```text
-vigilens/
-├── README.md
-├── docker-compose.yml          # Postgres + Redis
-├── .gitignore
-├── .env.example
-├── configs/
-│   ├── default.yaml            # TTOI / coverage / decline thresholds
-│   └── camera_room.yaml        # example room/camera hints
-├── docs/                       # plans + locks
-├── backend/                    # FastAPI (Phase 3+)
-├── frontend/                   # React Vite (Phase 4+)
-├── worker/                     # CV pipeline (Phase 11 / 16+)
-├── tests/
-├── models/                     # weights gitignored; README explains download
-├── data/                       # sample aggregates only
-├── notebooks/                  # optional research
-└── uploads/                    # runtime video (gitignored)
+[ Webcam / phone stream / uploaded MP4 ]
+              │
+              ▼
+┌─────────────────────────────────────┐
+│ React (Vite) — lecturer UI          │
+└──────────────────┬──────────────────┘
+                   │ REST + JWT
+┌──────────────────▼──────────────────┐
+│ FastAPI                             │
+└────────┬─────────────────┬──────────┘
+         ▼                 ▼
+   PostgreSQL            Redis
+         │                 ▲
+         ▼                 │
+┌─────────────────────────────────────┐
+│ Worker: YOLOv8-pose + Face Landmarker│
+│ → TTOI / coverage / declines         │
+└─────────────────────────────────────┘
 ```
 
 ---
 
 ## Prerequisites
 
-| Tool | Version | Notes |
-|---|---|---|
-| Python | **3.10+** | Backend + worker |
-| Node.js | **18+** | Frontend |
-| Docker Desktop / Engine | Latest | For Postgres + Redis via Compose |
-| Git | any | |
-
-**Docker note:** If Docker is not on this machine, still keep using `docker-compose.yml`. Run `docker compose up -d` on a machine that has Docker (e.g. home laptop) to verify Postgres + Redis are healthy.
+| Tool | Version |
+|---|---|
+| Python | **3.10–3.12** (3.12 recommended) |
+| Node.js | **18+** |
+| Docker Desktop / Engine | for Postgres 16 + Redis 7 |
+| Git | any |
 
 ---
 
-## Quick start — infrastructure (Phase 2)
+## Quick start (full stack)
 
-```bash
+### 1. Clone & env
+
+```powershell
 # From repo root
-copy .env.example .env          # Windows
-# cp .env.example .env          # macOS/Linux
-# Edit .env — at least POSTGRES_PASSWORD and SECRET_KEY
+copy .env.example .env
+# Edit .env — set POSTGRES_PASSWORD, SECRET_KEY, LECTURER_PASSWORD
+```
 
+### 2. Infrastructure
+
+```powershell
 docker compose up -d
-docker compose ps               # postgres + redis should be up/healthy
+docker compose ps   # postgres + redis healthy
 ```
 
-Stop:
+### 3. Backend
 
-```bash
-docker compose down
-```
-
-### Backend (Phase 3+)
-
-```bash
+```powershell
 cd backend
-python -m venv .venv
+py -3.12 -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-# http://localhost:8000/health
+alembic upgrade head
+
+# Fake worker = fast UI / Checkpoint A tests
+$env:USE_FAKE_WORKER = "true"
+# Real vision = product path (downloads models on first job)
+# $env:USE_FAKE_WORKER = "false"
+# $env:WORKER_MAX_FRAMES = "24"   # optional smoke cap
+
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Frontend (Phase 4+)
+- Health: http://localhost:8000/health  
+- OpenAPI: http://localhost:8000/docs  
+- Default login: `lecturer` / `change_me` (from `.env`)
 
-```bash
+### 4. Frontend
+
+```powershell
 cd frontend
 npm install
 npm run dev
-# http://localhost:5173  (scaffold login: any non-empty password)
+```
+
+Open http://localhost:5173 → login → Rooms → Sessions → Setup → Analysis → Results → Export / Pulse.
+
+### 5. Worker (real vision / smokes)
+
+```powershell
+# Prefer same venv as backend, or a dedicated one at repo root
+pip install -r worker/requirements.txt
+$env:PYTHONPATH = "D:\VIGILENS;D:\VIGILENS\backend"
+python worker/scripts/smoke_real_job.py
+```
+
+First real run downloads **YOLOv8-pose** weights and **MediaPipe Face Landmarker** (see [`models/README.md`](models/README.md)).
+
+---
+
+## Common workflows
+
+| Goal | Flags / command |
+|---|---|
+| UI demo (no GPU) | `USE_FAKE_WORKER=true` + frontend |
+| Real analysis | `USE_FAKE_WORKER=false` + short MP4 |
+| Unit tests | `pytest tests/unit -q` (no API) |
+| Checkpoint A API journey | API with fake worker → `pytest tests/api/test_checkpoint_a_journey.py -v` |
+| Checkpoint B API journey | API with real worker + short clip → `pytest tests/api/test_checkpoint_b_journey.py -v` |
+| Demo script | [`docs/DEMO_DRY_RUN.md`](docs/DEMO_DRY_RUN.md) |
+
+Details: [`tests/README.md`](tests/README.md) · [`worker/README.md`](worker/README.md).
+
+---
+
+## Repository layout
+
+```text
+vigilens/
+├── README.md
+├── docker-compose.yml
+├── .env.example
+├── configs/default.yaml
+├── docs/
+├── backend/          # FastAPI + Alembic
+├── frontend/         # React + Vite
+├── worker/           # YOLO + MediaPipe + TTOI
+├── tests/
+├── models/           # weights gitignored
+├── uploads/          # runtime video (gitignored)
+└── data/
 ```
 
 ---
 
-## Privacy & DPDP
+## Privacy
 
-Designed to align with India’s **DPDP Act, 2023** / **DPDP Rules, 2025** where applicable — **confirm with the institution; this is not legal advice.**
+Designed to align with India’s **DPDP Act, 2023** where applicable — **not legal advice; confirm with the institution.**
 
-- No face recognition or student IDs in storage  
+- No face recognition / student IDs in storage  
 - Local processing by default; purge raw video after analysis  
-- Aggregates only retained by default  
+- Class-level aggregates only  
 - Not for grading, attendance, or discipline  
-- Principal / Dean / student consents already obtained for this project  
+
+Sign-off: [`docs/PRIVACY_REVIEW_PHASE23.md`](docs/PRIVACY_REVIEW_PHASE23.md).
 
 ---
 
-## How to continue building
+## Limitations & related work (honesty)
 
-Follow [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md) in order. Next: **Phase 3 — Backend scaffold**.
+- **Orientation ≠ learning / attention / emotion.** Coverage gates suppress fake confidence.  
+- **Not first-of-kind** classroom CV — differentiation is TTOI + coverage + topics + privacy + local validation.  
+
+Full notes: [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md) · [`docs/RELATED_WORK.md`](docs/RELATED_WORK.md).
+
+---
+
+## License / academic use
+
+Academic / institutional project under approved consent protocol. Do not deploy for discipline or grading.

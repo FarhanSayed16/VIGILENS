@@ -26,6 +26,18 @@ def analysis_lock_key() -> str:
     return "lock:analysis"
 
 
+def live_snapshot_key(session_id: int) -> str:
+    return f"session:{session_id}:live"
+
+
+def live_preview_key(session_id: int) -> str:
+    return f"session:{session_id}:live_preview"
+
+
+def live_stop_key(session_id: int) -> str:
+    return f"session:{session_id}:live_stop"
+
+
 def invalidate_session_caches(session_id: int) -> None:
     """
     Soft-delete Redis keys for a session.

@@ -9,6 +9,7 @@ from app.api import (
     export,
     health,
     jobs,
+    live,
     media,
     modes,
     pulse,
@@ -28,6 +29,7 @@ api_router.include_router(topics.router)
 api_router.include_router(modes.router)
 api_router.include_router(media.router)
 api_router.include_router(analysis.router)
+api_router.include_router(live.router)
 api_router.include_router(jobs.router)
 api_router.include_router(windows.router)
 api_router.include_router(events.router)
