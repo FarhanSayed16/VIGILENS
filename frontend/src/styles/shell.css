@@ -1,7 +1,8 @@
 .app-shell {
   display: grid;
-  grid-template-columns: var(--sidebar-width) 1fr;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   min-height: 100vh;
+  min-width: 0;
 }
 
 .sidebar {
@@ -13,6 +14,8 @@
   position: sticky;
   top: 0;
   height: 100vh;
+  min-width: 0;
+  overflow: auto;
 }
 
 .brand {
@@ -152,9 +155,68 @@
   border-left: 3px solid var(--accent);
 }
 
-@media (max-width: 900px) {
+/* Compact icon rail — helps browser zoom / mid-width laptop layouts */
+@media (max-width: 1200px) {
+  :root {
+    --sidebar-width: 4.5rem;
+  }
+
+  .sidebar {
+    padding: var(--space-3) var(--space-2);
+    align-items: stretch;
+  }
+
+  .nav-link {
+    justify-content: center;
+    padding: var(--space-3);
+    gap: 0;
+    font-size: 0;
+  }
+
+  .nav-link svg {
+    margin: 0;
+  }
+
+  .brand {
+    justify-content: center;
+    margin-bottom: var(--space-4);
+  }
+
+  .brand > span:last-of-type {
+    display: none;
+  }
+
+  .sidebar-foot .nav-link,
+  .ghost-btn {
+    justify-content: center;
+    font-size: 0;
+    padding: var(--space-2);
+  }
+
+  .ghost-btn svg {
+    margin: 0;
+  }
+
+  .stage {
+    padding: var(--space-4);
+  }
+
+  .context-bar {
+    padding: 0 var(--space-4);
+  }
+
+  .context-meta {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
   .app-shell {
     grid-template-columns: 1fr;
+  }
+
+  :root {
+    --sidebar-width: 100%;
   }
 
   .sidebar {
@@ -162,10 +224,105 @@
     height: auto;
     border-right: none;
     border-bottom: 1px solid var(--border);
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .brand {
+    margin-bottom: 0;
+  }
+
+  .brand > span:last-of-type {
+    display: block;
+  }
+
+  .brand-wordmark {
+    font-size: var(--text-md);
+  }
+
+  .brand-tag {
+    display: none;
   }
 
   .nav {
     flex-direction: row;
     flex-wrap: wrap;
+    flex: 1;
   }
+
+  .nav-link {
+    font-size: var(--text-sm);
+    padding: var(--space-2) var(--space-3);
+    gap: var(--space-2);
+  }
+
+  .sidebar-foot {
+    border-top: none;
+    padding-top: 0;
+    flex-direction: row;
+    width: 100%;
+  }
+
+  .sidebar-foot .nav-link,
+  .ghost-btn {
+    font-size: var(--text-sm);
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .stage {
+    padding: var(--space-3);
+  }
+
+  .context-bar {
+    padding: 0 var(--space-3);
+    flex-wrap: wrap;
+    height: auto;
+    min-height: var(--context-height);
+    gap: 0.25rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .context-meta {
+    display: block;
+    width: 100%;
+  }
+}
+
+/* Projector / large desktop: denser stage for Results demos */
+@media (min-width: 1400px) {
+  .stage {
+    padding: var(--space-6) var(--space-8);
+  }
+}
+
+.nav-link:focus-visible,
+.ghost-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.settings-dl {
+  display: grid;
+  grid-template-columns: 8rem 1fr;
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+
+.settings-dl dt {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.settings-dl dd {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.settings-dl code {
+  font-size: 0.85em;
+  word-break: break-all;
 }
