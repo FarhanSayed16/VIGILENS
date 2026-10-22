@@ -13,6 +13,7 @@
 
 | Doc | Purpose |
 |---|---|
+| [`RUN.md`](RUN.md) | Daily start / stop commands (3 terminals) |
 | [`docs/MASTER_PLAN.md`](docs/MASTER_PLAN.md) | Execution checklist (Phases 1–24) |
 | [`docs/DOCS_INDEX.md`](docs/DOCS_INDEX.md) | Map of all docs |
 | [`docs/CHECKPOINT_C.md`](docs/CHECKPOINT_C.md) | **MVP complete** sign-off |
