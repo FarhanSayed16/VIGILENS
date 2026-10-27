@@ -7,6 +7,12 @@ from typing import List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
+class LiveStartBody(BaseModel):
+    """Phone browsers set this so the worker reads frames from the phone, not OpenCV."""
+
+    browser_camera: bool = False
+
+
 class LiveSeatStat(BaseModel):
     seat_id: str
     orientation_pct: Optional[float] = None

@@ -6,6 +6,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.core.camera_source import reject_app_page_url
 from app.db.enums import SourceType
 
 
@@ -31,6 +32,8 @@ class SourceUpdate(BaseModel):
     def validate_source(self) -> "SourceUpdate":
         if self.source_type == SourceType.PHONE_RTSP.value and not self.source_url:
             raise ValueError("source_url is required for phone_rtsp")
+        if self.source_type == SourceType.PHONE_RTSP.value:
+            reject_app_page_url(self.source_url)
         if self.source_type == SourceType.WEBCAM.value:
             # Prefer explicit webcam_index; fall back to numeric source_url
             if self.webcam_index is None and self.source_url:

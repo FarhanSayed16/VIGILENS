@@ -34,6 +34,14 @@ def live_preview_key(session_id: int) -> str:
     return f"session:{session_id}:live_preview"
 
 
+def live_ingest_key(session_id: int) -> str:
+    return f"session:{session_id}:live_ingest"
+
+
+def live_ingest_seq_key(session_id: int) -> str:
+    return f"session:{session_id}:live_ingest_seq"
+
+
 def live_stop_key(session_id: int) -> str:
     return f"session:{session_id}:live_stop"
 

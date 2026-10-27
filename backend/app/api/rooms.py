@@ -40,7 +40,7 @@ def calibrate_suggest(
     body: CalibrateSuggestBody,
     _lecturer: CurrentLecturer,
 ) -> CalibrateSuggestResponse:
-    """Propose seat grid + board ROI from camera viewpoint (no image required)."""
+    """Camera direction for this viewpoint. Does not create seat boxes."""
     return calibrate_service.suggest_layout(body)
 
 
@@ -53,8 +53,8 @@ async def calibrate_detect(
     cols: int = Form(4),
 ) -> CalibrateDetectResponse:
     """
-    YOLO person boxes → seats when possible; always returns a target ROI
-    for the chosen viewpoint. Falls back to seat grid if detect fails.
+    Returns the camera direction for this viewpoint.
+    Seats are registered from faces when the lecture starts.
     """
     data = await file.read()
     if not data:

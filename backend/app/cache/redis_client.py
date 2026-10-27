@@ -9,6 +9,8 @@ from typing import Any, Dict, Optional
 from app.cache.keys import (
     analysis_lock_key,
     job_status_key,
+    live_ingest_key,
+    live_ingest_seq_key,
     live_preview_key,
     live_snapshot_key,
     live_stop_key,
@@ -248,6 +250,62 @@ def get_live_preview_jpeg(session_id: int) -> Optional[bytes]:
             client.close()
         except Exception:  # noqa: BLE001
             pass
+
+
+_ingest_client = None
+
+
+def _ingest_redis():
+    """Reuse one binary client — the phone posts several frames a second."""
+    global _ingest_client
+    if _ingest_client is not None:
+        try:
+            _ingest_client.ping()
+            return _ingest_client
+        except Exception:  # noqa: BLE001
+            try:
+                _ingest_client.close()
+            except Exception:  # noqa: BLE001
+                pass
+            _ingest_client = None
+    _ingest_client = get_redis(decode_responses=False)
+    return _ingest_client
+
+
+def set_live_ingest_jpeg(session_id: int, jpeg: bytes) -> None:
+    """Latest phone-browser JPEG. The live worker reads this instead of OpenCV."""
+    if not jpeg:
+        return
+    client = _ingest_redis()
+    pipe = client.pipeline()
+    pipe.set(live_ingest_key(session_id), jpeg, ex=12)
+    pipe.incr(live_ingest_seq_key(session_id))
+    pipe.expire(live_ingest_seq_key(session_id), 30)
+    pipe.execute()
+
+
+def get_live_ingest_jpeg(session_id: int) -> tuple[Optional[bytes], int]:
+    try:
+        client = _ingest_redis()
+        jpeg, seq = client.mget(
+            live_ingest_key(session_id),
+            live_ingest_seq_key(session_id),
+        )
+    except Exception:  # noqa: BLE001
+        return None, 0
+    n = 0
+    if seq is not None:
+        try:
+            n = int(seq)
+        except (TypeError, ValueError):
+            n = 0
+    if isinstance(jpeg, memoryview):
+        jpeg = jpeg.tobytes()
+    elif isinstance(jpeg, bytearray):
+        jpeg = bytes(jpeg)
+    elif not isinstance(jpeg, bytes):
+        jpeg = None
+    return jpeg, n
 
 
 def request_live_stop(session_id: int) -> None:
