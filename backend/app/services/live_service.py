@@ -26,9 +26,11 @@ from app.cache.redis_client import (
     release_analysis_lock,
     request_live_stop,
     set_job_status_cache,
+    set_live_ingest_jpeg,
     set_live_snapshot,
     try_acquire_analysis_lock,
 )
+from app.core.camera_source import BROWSER_CAMERA_SOURCE, is_app_page_url, is_browser_camera
 from app.core.exceptions import AppError, ConflictError, NotFoundError
 from app.core.settings import get_settings
 from app.db.enums import JobStatus, SessionStatus, SourceType
@@ -232,7 +234,14 @@ def _reclaim_stale_analysis_lock(db: Session, session_id: int) -> None:
     )
 
 
-def start_live(db: Session, session_id: int) -> LiveState:
+def ingest_phone_frame(db: Session, session_id: int, jpeg: bytes) -> None:
+    row = db.get(SessionModel, session_id)
+    if row is None:
+        raise NotFoundError(f"Session {session_id} not found")
+    set_live_ingest_jpeg(session_id, jpeg)
+
+
+def start_live(db: Session, session_id: int, *, browser_camera: bool = False) -> LiveState:
     row = db.scalars(
         select(SessionModel)
         .options(joinedload(SessionModel.room_config))
@@ -274,17 +283,31 @@ def start_live(db: Session, session_id: int) -> LiveState:
         db.commit()
         db.refresh(row)
 
+    if browser_camera or is_browser_camera(row.source_url):
+        row.source_type = SourceType.PHONE_RTSP.value
+        row.source_url = BROWSER_CAMERA_SOURCE
+        if row.status == SessionStatus.ERROR.value:
+            row.status = SessionStatus.READY.value
+        db.commit()
+        db.refresh(row)
+    elif is_app_page_url(row.source_url):
+        raise AppError(
+            "That address is this website, not a camera. On the phone, tap Start lecture and allow the camera.",
+            status_code=400,
+            code="not_a_camera_url",
+        )
+
     if not _source_ready(row):
         raise AppError(
             "Source not ready — set webcam/upload before Start lecture",
             status_code=400,
             code="source_not_ready",
         )
-    if not row.room_config or not row.room_config.seat_regions_json:
+    if not row.room_config:
         raise AppError(
-            "Room has no seat regions — calibrate in Rooms first",
+            "Session has no room",
             status_code=400,
-            code="no_seats",
+            code="no_room",
         )
 
     _reclaim_stale_analysis_lock(db, session_id)
@@ -545,6 +568,9 @@ def _execute_live(db: Session, job_id: int, session_id: int) -> None:
                 "detection_hint": hb.get("detection_hint"),
                 "frame_luma": hb.get("frame_luma"),
                 "worker_source": hb.get("worker_source") or prev.get("worker_source"),
+                "per_seat": hb.get("per_seat")
+                if hb.get("per_seat") is not None
+                else prev.get("per_seat"),
                 "updated_at": _utcnow().isoformat(),
                 "message": hb.get("detection_hint") or prev.get("message"),
             }

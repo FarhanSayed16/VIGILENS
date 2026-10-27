@@ -7,6 +7,7 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.core.camera_source import reject_app_page_url
 from app.db.enums import SourceType
 
 
@@ -49,6 +50,8 @@ class SessionCreate(BaseModel):
     def phone_requires_url(self) -> "SessionCreate":
         if self.source_type == SourceType.PHONE_RTSP.value and not self.source_url:
             raise ValueError("source_url is required for phone_rtsp sessions")
+        if self.source_type == SourceType.PHONE_RTSP.value:
+            reject_app_page_url(self.source_url)
         return self
 
 

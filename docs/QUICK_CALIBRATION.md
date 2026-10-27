@@ -1,44 +1,42 @@
 # Quick room calibration
 
-Professors should not hand-draw every seat. Use **Quick setup** on Create/Edit room.
+The lecturer does not draw a seat for every chair. Quick setup only records where the camera sits and, for a fixed room camera, which way the board is.
 
 ## What is solid (by design)
 
 | Piece | Behavior |
 |---|---|
-| Viewpoint presets | 4 placements → seat band + amber board ROI |
-| Facing / TTOI | Still **seat-cluster → target centroid** (`teaching_target_geometry`) — same as Advanced |
-| Detect people | YOLO person boxes → padded seat regions; fallback to grid |
-| Board confirm | Tap to place amber box (required for real analysis) |
-| Canvas coords | Regions map to `object-fit: contain` image area (not letterbox bars) |
-| Save gates | ≥1 seat + target ROI required |
+| Viewpoint presets | 4 placements. They do not create a seat grid. |
+| Faces | At Start, a face with both eyes that holds still for about 2 seconds becomes `P1`, `P2`, … |
+| Facing | A fixed room camera uses the amber board box only to aim “faced the front”. A phone uses toward-camera. |
+| Empty chairs | Not shown. No grey placeholder tiles. |
+| Save | A room can be saved with zero seats. |
 
-## Placement → geometry
+## Placement → direction
 
-| Camera placement | Seat band | Default board | Facing vector |
-|---|---|---|---|
-| **Behind the class** | Lower/mid frame | Top strip | Toward top (board in view) |
-| **Facing the students** | People only (no board box) | *None* — `facing_mode=toward_camera` | Looking at lens = oriented |
-| **Left side** | Rightish half | Left strip | Toward left |
-| **Right side** | Leftish half | Right strip | Toward right |
+| Camera placement | Board box | What counts as facing the front |
+|---|---|---|
+| **Behind the class** | Top strip | Toward that box |
+| **Facing the students** | None | Looking at the lens |
+| **Left side** | Left strip | Toward that box |
+| **Right side** | Right strip | Toward that box |
 
-If the amber box is wrong for your room, **tap the real board** — that click updates the facing vector for analysis.
+If the amber box is wrong, tap the real board. That click updates direction. It still does not create seats.
 
-## Honest limits (not bugs)
+## Honest limits
 
-- **Not full 360° / SLAM** — pick the viewpoint that matches the fixed view you will analyze.
-- **Side cameras** vary (board front vs side wall) — presets are starts; confirm with a tap.
-- **Back-of-room** often sees backs of heads — Tier-1 body cues; Tier-2 faces may be sparse.
-- **One person** at a desk → often `insufficient_coverage` (coverage gate ~5 seats) unless you lower `min_usable_seats` for solo tests.
-- **Empty frame detect** → keeps seat grid for that viewpoint.
+- The first 15 seconds are for registration. A later stable face can still join.
+- Waving the phone shows a live face box and “hold still”. It does not lock a seat.
+- Someone who looks down keeps their slot as unobservable. The slot is not deleted.
+- This is not attendance. No names, no face crops, nothing kept for the next lecture.
 
 ## Lecturer steps
 
-1. Snap webcam / upload still  
-2. Pick viewpoint → Detect people **or** seat grid  
-3. Tap board if needed → Save  
+1. Snap a frame or skip straight to the lecture if you already know the camera.
+2. Pick the viewpoint. Save the room.
+3. Start the lecture and hold the camera still until the status says people are registered.
 
 ## API
 
-- `POST /rooms/calibrate/suggest`  
-- `POST /rooms/calibrate/detect` (multipart)  
+- `POST /rooms/calibrate/suggest` returns direction and an empty seat list.
+- `POST /rooms/calibrate/detect` does not turn people or a grid into seats.
