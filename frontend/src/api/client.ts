@@ -1,9 +1,19 @@
 import { clearSession, getAccessToken } from "../stores/auth";
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000").replace(
-  /\/$/,
-  "",
-);
+function resolveApiBase(): string {
+  const fromEnv = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "");
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    const pageIsLocal = host === "localhost" || host === "127.0.0.1";
+    // Same origin as the page (https://<pc-ip>:5173). Vite proxies to the API.
+    if (host && !pageIsLocal) {
+      return window.location.origin;
+    }
+  }
+  return fromEnv || "http://localhost:8000";
+}
+
+const API_BASE = resolveApiBase();
 
 export function getApiBaseUrl(): string {
   return API_BASE;

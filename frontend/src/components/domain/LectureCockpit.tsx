@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Play, Square } from "lucide-react";
 import type { LectureSession } from "../../api/sessions";
-import { fetchLivePreviewBlob, type LiveState } from "../../api/live";
-import { getRoom, type BoxRegion } from "../../api/rooms";
+import { fetchLivePreviewBlob, pushCameraFrame, type LiveState } from "../../api/live";
+import { shouldUsePhoneCamera } from "../../lib/phoneCamera";
 import { formatElapsed } from "../../api/topics";
 import "./lecture-cockpit.css";
 
@@ -17,7 +17,6 @@ function bandForSeat(o: number | null | undefined, usable: boolean): SeatBand {
 }
 
 function seatDisplayId(id: string): string {
-  if (/^v\d+$/i.test(id)) return `Extra ${id.slice(1)}`;
   return id;
 }
 
@@ -44,11 +43,14 @@ export function LectureCockpit({
 }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
+  const phoneStreamRef = useRef<MediaStream | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [phoneReady, setPhoneReady] = useState(false);
+  const [phoneFacing, setPhoneFacing] = useState<"user" | "environment">("user");
   const [workerPreviewUrl, setWorkerPreviewUrl] = useState<string | null>(null);
-  const [seatBoxes, setSeatBoxes] = useState<BoxRegion[]>([]);
   const [, setTick] = useState(0);
   const isLive = live?.running === true || session.status === "live";
+  const usePhoneCam = shouldUsePhoneCamera(session.source_type, session.source_url);
   // Release cam as soon as Start is clicked (before API returns) so the worker can open it.
   const workerOwnsCamera =
     session.source_type === "webcam" && (isLive || starting);
@@ -96,31 +98,96 @@ export function LectureCockpit({
     };
   }, [isLive, session.id]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const room = await getRoom(session.room_config_id);
-        if (!cancelled) {
-          setSeatBoxes(
-            (room.seat_regions || []).filter(
-              (r): r is BoxRegion => r.type === "box",
-            ),
-          );
-        }
-      } catch {
-        /* optional overlay */
+  async function openPhoneCamera(facing: "user" | "environment" = phoneFacing) {
+    setPreviewError(null);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setPhoneReady(false);
+      setPreviewError(
+        "This page is not a secure connection, so the phone will not ask for the camera. Open https:// and the PC’s address, then accept the certificate warning.",
+      );
+      return false;
+    }
+    phoneStreamRef.current?.getTracks().forEach((tr) => tr.stop());
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: facing,
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
+      phoneStreamRef.current = stream;
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = stream;
+        await video.play().catch(() => undefined);
       }
-    })();
+      setPhoneReady(true);
+      return true;
+    } catch {
+      setPhoneReady(false);
+      setPreviewError(
+        "Camera permission was blocked. Tap Allow camera and choose Allow. If no prompt appears, use the https:// address and accept the certificate warning.",
+      );
+      return false;
+    }
+  }
+
+  useEffect(() => {
+    if (!usePhoneCam) return;
+    void openPhoneCamera(phoneFacing);
     return () => {
-      cancelled = true;
+      phoneStreamRef.current?.getTracks().forEach((tr) => tr.stop());
+      phoneStreamRef.current = null;
     };
-  }, [session.room_config_id]);
+    // Re-ask only when the session or facing direction changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usePhoneCam, session.id, phoneFacing]);
+
+  useEffect(() => {
+    if (!usePhoneCam || !phoneReady || (!isLive && !starting)) return;
+    let stopped = false;
+    let busy = false;
+    const canvas = document.createElement("canvas");
+    const tick = async () => {
+      if (stopped || busy) return;
+      const video = videoRef.current;
+      if (!video || video.readyState < 2) return;
+      const vw = video.videoWidth || 640;
+      const vh = video.videoHeight || 480;
+      const w = Math.min(960, vw);
+      const h = Math.max(1, Math.round(w * (vh / vw)));
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.drawImage(video, 0, 0, w, h);
+      busy = true;
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob((b) => resolve(b), "image/jpeg", 0.72),
+      );
+      if (blob && !stopped) {
+        try {
+          await pushCameraFrame(session.id, blob);
+        } catch {
+          /* next tick */
+        }
+      }
+      busy = false;
+    };
+    const id = window.setInterval(() => void tick(), 140);
+    return () => {
+      stopped = true;
+      window.clearInterval(id);
+    };
+  }, [usePhoneCam, phoneReady, isLive, starting, session.id]);
 
   // Preview BEFORE live only. On Windows the browser exclusive-locks the cam;
   // OpenCV (worker) then often gets black frames → "0 detected". Release on Start.
   useEffect(() => {
     const v = videoRef.current;
+    if (usePhoneCam) return;
     if (session.source_type !== "webcam" || workerOwnsCamera) {
       if (v?.srcObject) {
         (v.srcObject as MediaStream).getTracks().forEach((tr) => tr.stop());
@@ -153,13 +220,13 @@ export function LectureCockpit({
       cancelled = true;
       stream?.getTracks().forEach((tr) => tr.stop());
     };
-  }, [session.source_type, session.id, workerOwnsCamera]);
+  }, [session.source_type, session.id, workerOwnsCamera, usePhoneCam]);
 
   // Draw seat ROI boxes on preview (geometry guide — not YOLO face boxes)
   useEffect(() => {
     const video = videoRef.current;
     const canvas = overlayRef.current;
-    if (!video || !canvas || session.source_type !== "webcam") return;
+    if (!video || !canvas || (session.source_type !== "webcam" && !usePhoneCam)) return;
 
     let raf = 0;
     const draw = () => {
@@ -173,35 +240,6 @@ export function LectureCockpit({
         const ctx = canvas.getContext("2d");
         if (ctx) {
           ctx.clearRect(0, 0, w, h);
-          // object-fit: cover style mapping approx — use contain math
-          const vw = video.videoWidth || w;
-          const vh = video.videoHeight || h;
-          const scale = Math.min(w / vw, h / vh);
-          const dw = vw * scale;
-          const dh = vh * scale;
-          const ox = (w - dw) / 2;
-          const oy = (h - dh) / 2;
-          for (const box of seatBoxes) {
-            const seatLive = live?.per_seat?.find((s) => s.seat_id === box.id);
-            const band = seatLive
-              ? bandForSeat(seatLive.orientation_pct, seatLive.usable)
-              : "unobservable";
-            const color =
-              band === "oriented"
-                ? "rgba(15,118,110,0.9)"
-                : band === "mixed"
-                  ? "rgba(194,120,3,0.9)"
-                  : band === "decline"
-                    ? "rgba(185,28,28,0.9)"
-                    : "rgba(148,163,184,0.85)";
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2.5;
-            ctx.strokeRect(ox + box.x * dw, oy + box.y * dh, box.w * dw, box.h * dh);
-            ctx.fillStyle = color;
-            ctx.font = "600 12px system-ui,sans-serif";
-            ctx.fillText(box.id, ox + box.x * dw + 4, oy + box.y * dh + 14);
-          }
-          // Detection badge
           const n = live?.persons_detected;
           if (n != null) {
             ctx.fillStyle = n > 0 ? "rgba(15,118,110,0.92)" : "rgba(185,28,28,0.9)";
@@ -217,9 +255,8 @@ export function LectureCockpit({
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
   }, [
-    seatBoxes,
     session.source_type,
-    live?.per_seat,
+    usePhoneCam,
     live?.persons_detected,
   ]);
 
@@ -260,6 +297,14 @@ export function LectureCockpit({
               className="btn-primary"
               disabled={starting}
               onClick={() => {
+                if (usePhoneCam) {
+                  void (async () => {
+                    const ok = phoneReady || (await openPhoneCamera(phoneFacing));
+                    if (!ok) return;
+                    onStart({ browserCamera: true });
+                  })();
+                  return;
+                }
                 // Stop getUserMedia immediately (don't wait for React effect)
                 const v = videoRef.current;
                 if (v?.srcObject) {
@@ -303,11 +348,11 @@ export function LectureCockpit({
             (persons == null
               ? "Camera starting… seat colors update every ~30s; people count updates sooner."
               : persons > 0
-                ? `Seeing ${persons} person(s)${
-                    inSeats != null ? `, ${inSeats} in drawn seats` : ""
+                ? `Seeing ${persons} face(s)${
+                    inSeats != null ? `, ${inSeats} registered` : ""
                   }.`
-                : "Seeing 0 people — check lighting and that Setup used the same webcam.")}
-          <Link to={`/rooms/${session.room_config_id}/edit`}>Adjust seat boxes</Link>
+                : "No face yet — look at the camera and hold still.")}
+          <Link to={`/rooms/${session.room_config_id}/edit`}>Room camera</Link>
         </div>
       ) : null}
 
@@ -317,11 +362,55 @@ export function LectureCockpit({
             <header>
               <strong>Primary camera</strong>
               <span>
-                {session.source_type.replace("_", " ")}
-                {session.source_url ? ` · ${session.source_url}` : ""}
+                {usePhoneCam
+                  ? "This phone"
+                  : session.source_type.replace("_", " ")}
+                {!usePhoneCam && session.source_url ? ` · ${session.source_url}` : ""}
               </span>
             </header>
-            {session.source_type === "webcam" && !workerOwnsCamera ? (
+            {usePhoneCam ? (
+              <div className="preview-stack">
+                <video
+                  ref={videoRef}
+                  playsInline
+                  muted
+                  autoPlay
+                  className={
+                    workerPreviewUrl
+                      ? "preview-video phone-capture-only"
+                      : "preview-video"
+                  }
+                />
+                {workerPreviewUrl ? (
+                  <img
+                    src={workerPreviewUrl}
+                    alt="Live face boxes from this phone"
+                    className="preview-video worker-jpeg"
+                  />
+                ) : null}
+                <canvas ref={overlayRef} className="preview-overlay" aria-hidden />
+                <div className="phone-cam-actions">
+                  {!phoneReady ? (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => void openPhoneCamera(phoneFacing)}
+                    >
+                      Allow camera
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    onClick={() =>
+                      setPhoneFacing((f) => (f === "user" ? "environment" : "user"))
+                    }
+                  >
+                    {phoneFacing === "user" ? "Use back camera" : "Use front camera"}
+                  </button>
+                </div>
+              </div>
+            ) : session.source_type === "webcam" && !workerOwnsCamera ? (
               <div className="preview-stack">
                 <video ref={videoRef} playsInline muted className="preview-video" />
                 <canvas ref={overlayRef} className="preview-overlay" aria-hidden />
@@ -330,7 +419,7 @@ export function LectureCockpit({
               <div className="preview-stack">
                 <img
                   src={workerPreviewUrl}
-                  alt="Worker camera preview with seat and person overlays"
+                  alt="Live face boxes from the camera"
                   className="preview-video worker-jpeg"
                 />
               </div>
@@ -343,8 +432,8 @@ export function LectureCockpit({
                 </strong>
                 <span>
                   Frames come from the analysis worker (Windows allows one camera
-                  owner). Seat boxes and person outlines appear once detection
-                  runs.
+                  owner). A face box appears once a face is in view. It locks
+                  after the face holds still.
                 </span>
                 {live?.detection_hint &&
                 /loading|opening worker/i.test(live.detection_hint) ? (
@@ -376,9 +465,11 @@ export function LectureCockpit({
             )}
             {previewError ? <p className="preview-err">{previewError}</p> : null}
             <p className="preview-note">
-              {isLive
-                ? "Live camera with seat boxes and people highlights — anonymous, not face identity."
-                : "Align yourself inside the seat outline, then Start lecture. During live you’ll see the worker feed."}
+              {usePhoneCam
+                ? "This phone is the camera. Allow the prompt, then Start lecture. Frames are sent to the computer for analysis — no names are stored."
+                : isLive
+                  ? "Live camera with seat boxes and people highlights — anonymous, not face identity."
+                  : "Align yourself inside the seat outline, then Start lecture. During live you’ll see the worker feed."}
             </p>
           </div>
           {secondaryLabel ? (
@@ -411,7 +502,7 @@ export function LectureCockpit({
             <span className="label">People in view</span>
             <span className="value">
               {persons != null ? persons : "—"}
-              {inSeats != null ? ` · ${inSeats} tracked` : ""}
+              {inSeats != null ? ` · ${inSeats} registered` : ""}
             </span>
           </div>
           <div className="gauge">
@@ -422,8 +513,8 @@ export function LectureCockpit({
             </span>
           </div>
           <p className="honesty">
-            Shows who faces the teaching area — not attention or grades. Drawn
-            seats plus “Extra” for people outside those boxes. Good light helps.
+            Shows who faces the teaching area — not attention or grades. A box
+            appears only after a face with both eyes holds still. Good light helps.
           </p>
         </aside>
       </div>
@@ -432,8 +523,8 @@ export function LectureCockpit({
         <section className="seat-map-panel" aria-label="Seat orientation map">
           <h3>Who faces the front</h3>
           <p className="panel-sub">
-            Green = facing · amber = mixed · red = looking away · grey = can’t
-            see. “Extra” = someone outside your drawn seat boxes.
+            Green = facing · amber = mixed · red = looking away · grey = face
+            locked but not clear right now. Empty chairs are not shown.
           </p>
           {seats.length === 0 ? (
             <div className="seat-map-empty">

@@ -47,8 +47,28 @@ export type LiveState = {
   preview_available?: boolean;
 };
 
-export function startLive(sessionId: number): Promise<LiveState> {
-  return apiPost<LiveState>(`/sessions/${sessionId}/live/start`);
+export function startLive(
+  sessionId: number,
+  opts?: { browserCamera?: boolean },
+): Promise<LiveState> {
+  return apiPost<LiveState>(`/sessions/${sessionId}/live/start`, {
+    browser_camera: Boolean(opts?.browserCamera),
+  });
+}
+
+export async function pushCameraFrame(sessionId: number, jpeg: Blob): Promise<void> {
+  const token = getAccessToken();
+  const res = await fetch(`${getApiBaseUrl()}/sessions/${sessionId}/live/camera`, {
+    method: "POST",
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      "Content-Type": "image/jpeg",
+    },
+    body: jpeg,
+  });
+  if (!res.ok && res.status !== 204) {
+    throw new Error(`camera frame ${res.status}`);
+  }
 }
 
 export function stopLive(sessionId: number): Promise<LiveState> {

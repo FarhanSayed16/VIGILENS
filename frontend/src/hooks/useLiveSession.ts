@@ -82,14 +82,16 @@ export function useLiveSession(sessionId: number) {
     };
   }, [sessionId, refresh, beginPoll, stopPoll]);
 
-  async function onStart() {
+  async function onStart(opts?: { browserCamera?: boolean }) {
     setStarting(true);
     setError(null);
     try {
-      // React re-renders with starting=true → LectureCockpit stops getUserMedia,
-      // then we wait so Windows fully releases the device before OpenCV opens it.
-      await new Promise((r) => window.setTimeout(r, 900));
-      const st = await startLive(sessionId);
+      // Laptop webcam: wait so Windows releases the browser camera before OpenCV.
+      // Phone camera: keep the stream and send frames; do not release it.
+      if (!opts?.browserCamera) {
+        await new Promise((r) => window.setTimeout(r, 900));
+      }
+      const st = await startLive(sessionId, opts);
       setLive(st);
       const s = await getSession(sessionId);
       setSession(s);

@@ -88,6 +88,17 @@
   pointer-events: none;
 }
 
+.phone-cam-actions {
+  position: absolute;
+  left: 0.5rem;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .preview-note {
   margin: 0;
   padding: var(--space-2) var(--space-3);
@@ -216,6 +227,15 @@
   object-fit: contain;
   background: #0b1220;
   image-rendering: auto;
+}
+
+.preview-video.phone-capture-only {
+  position: absolute;
+  width: 160px;
+  height: 90px;
+  aspect-ratio: auto;
+  opacity: 0.02;
+  pointer-events: none;
 }
 
 .preview-placeholder {
