@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generator, Iterator, List, Optional, Union
+from typing import Callable, Generator, Iterator, List, Optional, Tuple, Union
 
 import cv2
 import numpy as np
@@ -255,6 +255,61 @@ def iter_sampled_frames(
                 frame_i += 1
     finally:
         cap.release()
+
+
+def iter_pushed_jpegs(
+    pull: Callable[[], Tuple[Optional[bytes], int]],
+    *,
+    sample_fps: float = 12.0,
+    should_stop: Optional[Callable[[], bool]] = None,
+    on_waiting: Optional[Callable[[str], None]] = None,
+) -> Generator[SampledFrame, None, None]:
+    """
+    Frames posted by a phone browser (JPEG bytes), not an OpenCV device.
+
+    Blocks until Stop. A missing camera does not raise — the phone may still
+    be showing the permission prompt.
+    """
+    import time
+
+    target = max(1.0, float(sample_fps))
+    interval = 1.0 / target
+    t0 = time.monotonic()
+    last_seq = -1
+    sampled = 0
+    next_t = 0.0
+    last_wait_note = 0.0
+
+    while True:
+        if should_stop and should_stop():
+            return
+        jpeg, seq = pull()
+        now = time.monotonic() - t0
+        if jpeg and seq != last_seq and now + 1e-6 >= next_t:
+            arr = np.frombuffer(jpeg, dtype=np.uint8)
+            frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+            last_seq = seq
+            if frame is None:
+                time.sleep(0.04)
+                continue
+            h, w = frame.shape[:2]
+            yield SampledFrame(
+                index=sampled,
+                frame_index=sampled,
+                time_sec=round(now, 3),
+                image=frame,
+                width=w,
+                height=h,
+            )
+            sampled += 1
+            next_t = now + interval
+            continue
+        if sampled == 0 and on_waiting and now - last_wait_note > 3.0:
+            last_wait_note = now
+            on_waiting(
+                "Waiting for this phone's camera. Tap Allow camera on the phone."
+            )
+        time.sleep(0.04)
 
 
 def collect_sample_timestamps(

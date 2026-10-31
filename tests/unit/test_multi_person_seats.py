@@ -19,7 +19,7 @@ def _person(x1, y1, x2, y2, conf=0.9) -> PersonDetection:
     )
 
 
-def test_extra_people_get_virtual_seats():
+def test_people_outside_drawn_seats_stay_unassigned():
     seats = parse_seat_regions(
         [{"type": "box", "id": "s1", "x": 0.05, "y": 0.2, "w": 0.2, "h": 0.5}]
     )
@@ -30,13 +30,16 @@ def test_extra_people_get_virtual_seats():
         _person(950, 130, 1100, 530, 0.85),
     ]
     fmap = assign_persons_to_seats(
-        people, seats, frame_width=1280, frame_height=720, time_sec=1.0
+        people,
+        seats,
+        frame_width=1280,
+        frame_height=720,
+        time_sec=1.0,
+        virtual_for_unassigned=True,
     )
-    tracked = sum(1 for v in fmap.seat_to_person_indices.values() if v)
-    assert tracked == 4
     assert fmap.seat_to_person_indices["s1"]
-    assert "v1" in fmap.seat_to_person_indices
-    assert len(fmap.unassigned_indices) == 0
+    assert "v1" not in fmap.seat_to_person_indices
+    assert len(fmap.unassigned_indices) == 3
 
 
 def test_dedupe_overlaps():

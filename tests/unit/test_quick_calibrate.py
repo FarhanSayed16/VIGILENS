@@ -1,12 +1,12 @@
-"""Quick calibration presets produce valid seats + sensible facing vectors."""
+"""Quick calibration sets camera direction. It does not invent seat boxes."""
 
 from worker import quick_calibrate, regions
 
 
-def test_all_placements_have_seats_and_target():
+def test_all_placements_have_direction_and_no_seat_grid():
     for p in quick_calibrate.PLACEMENTS:
         layout = quick_calibrate.suggest_layout(p, rows=2, cols=3)
-        assert len(layout["seat_regions"]) == 6
+        assert layout["seat_regions"] == []
         if p == "facing_class":
             assert layout["target_roi"] is None
             assert layout["facing_mode"] == "toward_camera"
@@ -15,9 +15,6 @@ def test_all_placements_have_seats_and_target():
             assert t["id"] == "teaching_target"
             assert 0 <= t["x"] < 1 and t["w"] > 0
             assert layout["facing_mode"] == "toward_board"
-        for s in layout["seat_regions"]:
-            assert s["x"] + s["w"] <= 1.0001
-            assert s["y"] + s["h"] <= 1.0001
 
 
 def test_target_from_click_centered():
