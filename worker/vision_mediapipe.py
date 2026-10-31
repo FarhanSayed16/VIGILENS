@@ -186,6 +186,60 @@ def head_pose_from_landmarks_px(
     return yaw, pitch, roll
 
 
+def face_sightings_from_frame(
+    landmarker: Any,
+    frame_bgr: np.ndarray,
+    *,
+    time_sec: float = 0.0,
+    min_eye_px: float = 18.0,
+) -> list:
+    """
+    Faces with a bounding box and whether both eyes are in frame.
+
+    Returns FaceSighting objects. A face without both eyes is not a seat.
+    """
+    from worker.face_registrar import FaceSighting
+
+    if landmarker is None or frame_bgr is None or frame_bgr.size == 0:
+        return []
+    h, w = frame_bgr.shape[:2]
+    out: list = []
+    for lm_px in detect_faces_landmarks(landmarker, frame_bgr):
+        if lm_px.shape[0] <= max(IDX_LEFT_EYE_OUTER, IDX_RIGHT_EYE_OUTER):
+            continue
+        left = lm_px[IDX_LEFT_EYE_OUTER]
+        right = lm_px[IDX_RIGHT_EYE_OUTER]
+        eye_px = float(np.linalg.norm(right - left))
+        eyes = (
+            eye_px >= min_eye_px
+            and 0.0 <= float(left[0]) < w
+            and 0.0 <= float(right[0]) < w
+            and 0.0 <= float(left[1]) < h
+            and 0.0 <= float(right[1]) < h
+        )
+        pad = max(4.0, eye_px * 0.35)
+        x1 = float(max(0.0, lm_px[:, 0].min() - pad))
+        y1 = float(max(0.0, lm_px[:, 1].min() - pad))
+        x2 = float(min(w - 1.0, lm_px[:, 0].max() + pad))
+        y2 = float(min(h - 1.0, lm_px[:, 1].max() + pad))
+        yaw = pitch = None
+        if eyes:
+            pose = head_pose_from_landmarks_px(lm_px, w, h)
+            if pose is not None:
+                yaw, pitch, _roll = pose
+        out.append(
+            FaceSighting(
+                bbox_xyxy=(x1, y1, x2, y2),
+                eyes_visible=eyes,
+                time_sec=time_sec,
+                yaw_deg=yaw,
+                pitch_deg=pitch,
+                face_width_px=eye_px,
+            )
+        )
+    return out
+
+
 def detect_faces_landmarks(
     landmarker: Any,
     frame_bgr: np.ndarray,

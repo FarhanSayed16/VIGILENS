@@ -1,8 +1,8 @@
 """
-Assign YOLO persons to seat regions + occupied-seat calibration.
+Assign YOLO persons to drawn seat regions for offline clips.
 
-Supports classroom dynamics: soft nearest-seat assign, one person per drawn
-seat, and ephemeral virtual seats for extra people in view (arrive/leave).
+Live lectures do not use this. They register seats from faces
+(worker/face_registrar.py). There are no virtual vN seats.
 """
 
 from __future__ import annotations
@@ -95,18 +95,16 @@ def assign_persons_to_seats(
     frame_height: int,
     time_sec: float = 0.0,
     soft_radius_norm: float = 0.18,
-    virtual_for_unassigned: bool = True,
-    max_virtual_seats: int = 60,
+    virtual_for_unassigned: bool = False,
+    max_virtual_seats: int = 0,
 ) -> FrameSeatMap:
     """
-    Map each person to at most one seat via hip/bbox anchor.
+    Map each person onto a drawn seat via hip/bbox anchor.
 
-    - Polygon / box hit first
-    - Then soft nearest seat within ``soft_radius_norm``
-    - Contested seats keep the highest-confidence person
-    - Remaining people get ephemeral ``v1…vN`` seats so classmates who enter
-      or leave the frame still contribute to live orientation metrics
+    People outside every seat stay unassigned. Live sessions do not call this.
+    ``virtual_for_unassigned`` is ignored so old callers cannot invent vN seats.
     """
+    del virtual_for_unassigned, max_virtual_seats
     people = dedupe_persons(persons)
     for p in people:
         p.seat_id = None
@@ -133,31 +131,12 @@ def assign_persons_to_seats(
         if prev is None or float(people[i].conf) > float(people[prev].conf):
             claimed[sid] = i
 
-    # Solo / desk: one seat + everyone outside → claim strongest into that seat
-    if len(seats) == 1 and seats[0].id not in claimed:
-        only = seats[0].id
-        if people:
-            best_i = max(range(len(people)), key=lambda i: float(people[i].conf))
-            claimed[only] = best_i
-
     winners = set(claimed.values())
     for sid, idx in claimed.items():
         seat_to[sid] = [idx]
         people[idx].seat_id = sid
 
     unassigned = [i for i in range(len(people)) if i not in winners]
-
-    # Ephemeral seats for extras (sorted left→right for stable in-frame labels)
-    if virtual_for_unassigned and unassigned:
-        ordered = sorted(
-            unassigned,
-            key=lambda i: people[i].anchor_xy()[0],
-        )[: max(0, int(max_virtual_seats))]
-        for n, idx in enumerate(ordered, start=1):
-            vid = f"v{n}"
-            seat_to[vid] = [idx]
-            people[idx].seat_id = vid
-        unassigned = [i for i in unassigned if people[i].seat_id is None]
 
     return FrameSeatMap(
         time_sec=time_sec,
@@ -198,16 +177,6 @@ def calibrate_occupancy(
         for sid, f in fracs.items()
         if f >= occupied_seat_min_fraction
     ]
-    # Also count virtual seats that appeared in most recent maps
-    virtual_hits: Dict[str, int] = {}
-    for fm in frame_maps:
-        for sid, idxs in fm.seat_to_person_indices.items():
-            if sid.startswith("v") and idxs:
-                virtual_hits[sid] = virtual_hits.get(sid, 0) + 1
-    for sid, h in virtual_hits.items():
-        if h / n >= occupied_seat_min_fraction:
-            occupied.append(sid)
-
     return OccupancyCalibration(
         n_frames=n,
         seat_occupancy_fraction=fracs,
