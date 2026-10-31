@@ -187,17 +187,18 @@ export function SessionHubPage() {
 
       {session.status === "error" ? (
         <p className="sessions-error" style={{ marginBottom: "0.75rem" }}>
-          Last live run failed (often a worker crash). Click{" "}
-          <strong>Start lecture</strong> again after the API reload — or check
-          the backend terminal for the traceback.
+          {session.source_url?.includes(":5173") ||
+          session.source_url?.includes(":8000")
+            ? "The last run used this website’s address as the camera, so nothing could be recorded. On the phone, tap Allow camera, then Start lecture."
+            : "Last live run failed. Tap Start lecture again. If you are on the phone, allow the camera prompt first."}
         </p>
       ) : null}
 
       <section className="console-analysis analysis-panel">
         <h2>Live lecture</h2>
         <p className="analysis-lede">
-          Preview is your webcam with seat boxes. Start begins detection; Stop
-          opens Review. This shows who faces the teaching area — not attention.
+          The camera looks for faces. A person is registered only after their
+          face holds still. This shows who faces the teaching area — not attention.
         </p>
         <LectureCockpit
           session={session}
@@ -205,7 +206,7 @@ export function SessionHubPage() {
           starting={live.starting}
           stopping={live.stopping}
           error={live.error}
-          onStart={() => void live.onStart()}
+          onStart={(opts) => void live.onStart(opts)}
           onStop={() => void live.onStop()}
           secondaryLabel={session.secondary_source_url ?? null}
         />

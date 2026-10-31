@@ -3,9 +3,7 @@ import { Link, useBlocker, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../../api/client";
 import {
   createRoom,
-  detectCalibration,
   getRoom,
-  suggestCalibration,
   updateRoom,
   type BoxRegion,
   type CameraDefaults,
@@ -69,8 +67,6 @@ export function RoomEditorPage() {
   const [mode, setMode] = useState<"quick" | "advanced">("quick");
   const [step, setStep] = useState(1);
   const [placement, setPlacement] = useState<CameraPlacement>("back_of_room");
-  const [rows, setRows] = useState(3);
-  const [cols, setCols] = useState(4);
   const [busy, setBusy] = useState(false);
   const [camOpen, setCamOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -185,65 +181,6 @@ export function RoomEditorPage() {
 
   const towardCamera = placement === "facing_class";
 
-  async function applyGrid() {
-    setBusy(true);
-    setError(null);
-    setInfo(null);
-    try {
-      const res = await suggestCalibration({ placement, rows, cols });
-      setSeats(res.seat_regions);
-      setTarget(res.target_roi ?? null);
-      setCamera((c) => ({
-        ...c,
-        placement,
-        facing_mode: res.facing_mode || (towardCamera ? "toward_camera" : "toward_board"),
-      }));
-      setInfo(res.hint);
-      setTool(towardCamera ? "select" : "click_target");
-      setStep(towardCamera ? 2 : 3);
-      markDirty();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Suggest failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function applyDetect() {
-    if (!frameFile) {
-      setError("Capture or upload a frame first (step 1).");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    setInfo(null);
-    try {
-      const res = await detectCalibration(frameFile, { placement, rows, cols });
-      setSeats(res.seat_regions);
-      setTarget(res.target_roi ?? null);
-      setCamera((c) => ({
-        ...c,
-        placement,
-        facing_mode: res.facing_mode || (towardCamera ? "toward_camera" : "toward_board"),
-      }));
-      setInfo(
-        res.message ||
-          (res.people_found > 0
-            ? towardCamera
-              ? `Detected ${res.people_found} person(s) as seats only — no board box.`
-              : `Detected ${res.people_found} people as seats. Tap the board if the amber box is wrong.`
-            : res.hint),
-      );
-      setTool(towardCamera ? "select" : "click_target");
-      setStep(towardCamera ? 2 : 3);
-      markDirty();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Detect failed");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function openCamera() {
     setError(null);
     setBusy(true);
@@ -320,7 +257,9 @@ export function RoomEditorPage() {
       setFrame(file);
       stopCamera();
       setStep(2);
-      setInfo("Frame captured — pick camera viewpoint below, then detect seats.");
+      setInfo(
+        "Frame captured. Seats are not drawn — each face registers itself when you start the lecture.",
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Capture failed");
     } finally {
@@ -333,10 +272,6 @@ export function RoomEditorPage() {
     setError(null);
     if (!name.trim()) {
       setError("Room name is required.");
-      return;
-    }
-    if (seats.length === 0) {
-      setError("Add at least one seat (Quick setup or Advanced draw).");
       return;
     }
     const facingMode =
@@ -537,7 +472,7 @@ export function RoomEditorPage() {
                     <h2>2 · Where is the camera?</h2>
                     <p>
                       {imageUrl
-                        ? "Pick the viewpoint that matches this room. Seats and board zones are suggested from that."
+                        ? "Pick where the camera sits. You do not place seat boxes. Faces register in the first 15 seconds of the lecture."
                         : "Capture or upload a frame in step 1 first."}
                     </p>
                     {imageUrl ? (
@@ -576,50 +511,11 @@ export function RoomEditorPage() {
                             </button>
                           ))}
                         </div>
-                        <div className="grid-size-row">
-                          <label>
-                            Rows
-                            <input
-                              type="number"
-                              min={1}
-                              max={12}
-                              value={rows}
-                              onChange={(e) =>
-                                setRows(Number(e.target.value) || 1)
-                              }
-                            />
-                          </label>
-                          <label>
-                            Columns
-                            <input
-                              type="number"
-                              min={1}
-                              max={12}
-                              value={cols}
-                              onChange={(e) =>
-                                setCols(Number(e.target.value) || 1)
-                              }
-                            />
-                          </label>
-                        </div>
-                        <div className="tool-row">
-                          <button
-                            type="button"
-                            className="btn-primary"
-                            disabled={busy || !imageUrl}
-                            onClick={() => void applyDetect()}
-                          >
-                            {busy ? "Detecting…" : "Detect people → seats"}
-                          </button>
-                          <button
-                            type="button"
-                            className="ghost-btn"
-                            disabled={busy}
-                            onClick={() => void applyGrid()}
-                          >
-                            Use seat grid only
-                          </button>
-                        </div>
+                        <p className="rooms-info">
+                          Do not draw a seat for every chair. Empty places stay
+                          empty. A person gets a box only after their face and
+                          both eyes hold still.
+                        </p>
                       </>
                     ) : null}
                   </div>
@@ -634,12 +530,12 @@ export function RoomEditorPage() {
                     </p>
                   </div>
                 ) : null}
-                {!camOpen && imageUrl && towardCamera && seats.length > 0 ? (
+                {!camOpen && imageUrl && towardCamera ? (
                   <div className="quick-step current">
                     <h2>3 · Save</h2>
                     <p>
-                      Seats are set from people. No board step needed for this
-                      viewpoint — save the room when ready.
+                      No board box and no seat grid. Save the room, then start
+                      the lecture — faces register themselves.
                     </p>
                   </div>
                 ) : null}

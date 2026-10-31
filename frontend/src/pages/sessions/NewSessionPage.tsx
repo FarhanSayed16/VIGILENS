@@ -3,6 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { ApiError } from "../../api/client";
 import { listRooms, type Room } from "../../api/rooms";
 import { createSession, type SourceType } from "../../api/sessions";
+import {
+  BROWSER_CAMERA_SOURCE,
+  isAppPageUrl,
+  isPhoneDevice,
+} from "../../lib/phoneCamera";
 import "./sessions.css";
 
 const STEPS = ["Title & room", "Source", "Privacy"] as const;
@@ -35,7 +40,12 @@ export function NewSessionPage() {
 
   const [title, setTitle] = useState("");
   const [roomId, setRoomId] = useState<number | "">("");
-  const [sourceType, setSourceType] = useState<SourceType>("webcam");
+  const [sourceType, setSourceType] = useState<SourceType>(
+    isPhoneDevice() ? "phone_rtsp" : "webcam",
+  );
+  const [phoneMode, setPhoneMode] = useState<"device" | "app">(
+    isPhoneDevice() ? "device" : "app",
+  );
   const [sourceUrl, setSourceUrl] = useState("");
   const [privacyOk, setPrivacyOk] = useState(false);
 
@@ -67,7 +77,9 @@ export function NewSessionPage() {
     }
     if (step === 1) {
       if (sourceType === "phone_rtsp") {
-        return sourceUrl.trim().length > 0;
+        if (phoneMode === "device") return true;
+        const url = sourceUrl.trim();
+        return url.length > 0 && !isAppPageUrl(url);
       }
       return true;
     }
@@ -90,7 +102,9 @@ export function NewSessionPage() {
         source_type: sourceType,
         source_url:
           sourceType === "phone_rtsp"
-            ? sourceUrl.trim()
+            ? phoneMode === "device"
+              ? BROWSER_CAMERA_SOURCE
+              : sourceUrl.trim()
             : sourceType === "webcam"
               ? `webcam:${webcamIdx}`
               : null,
@@ -121,7 +135,7 @@ export function NewSessionPage() {
     return (
       <div className="empty-card">
         <h2>No rooms available</h2>
-        <p>Create a room with seats and a teaching target before starting a session.</p>
+        <p>Create a room before starting a session. Seats register from faces when the lecture starts.</p>
         <div className="btn-row">
           <Link className="btn-primary" to="/rooms/new">
             Create room
@@ -197,23 +211,53 @@ export function NewSessionPage() {
               ))}
             </div>
             {sourceType === "phone_rtsp" ? (
-              <label>
-                Stream URL
-                <input
-                  value={sourceUrl}
-                  onChange={(e) => setSourceUrl(e.target.value)}
-                  placeholder="http://192.168.x.x:8080/video or rtsp://…"
-                />
-              </label>
-            ) : sourceType === "webcam" ? (
+              <>
+                <div className="source-grid">
+                  <button
+                    type="button"
+                    className={`source-card${phoneMode === "device" ? " selected" : ""}`}
+                    onClick={() => setPhoneMode("device")}
+                  >
+                    <strong>This phone’s camera</strong>
+                    <span>Asks for camera permission. Do not paste this website.</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`source-card${phoneMode === "app" ? " selected" : ""}`}
+                    onClick={() => setPhoneMode("app")}
+                  >
+                    <strong>IP Webcam app</strong>
+                    <span>Only if an app already shows a video URL.</span>
+                  </button>
+                </div>
+                {phoneMode === "device" ? (
+                  <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
+                    Open this page on the phone, allow the camera, then press Start
+                    lecture. The address in the browser bar is the app, not the camera.
+                  </p>
+                ) : (
+                  <label>
+                    Stream URL
+                    <input
+                      value={sourceUrl}
+                      onChange={(e) => setSourceUrl(e.target.value)}
+                      placeholder="http://192.168.x.x:8080/video or rtsp://…"
+                    />
+                    {isAppPageUrl(sourceUrl) ? (
+                      <span className="sessions-error">
+                        That is this website. Choose This phone’s camera instead.
+                      </span>
+                    ) : null}
+                  </label>
+                )}
+              </>
+            ) : sourceType === "upload" ? (
               <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
-                Webcam index 0 is attached automatically (or the room’s saved
-                index). You land on the Console — press Start lecture. Change
-                camera later under More → Setup if needed.
+                Next you will upload the lecture file on Setup.
               </p>
             ) : (
               <p style={{ fontSize: "var(--text-sm)", color: "var(--text-secondary)" }}>
-                Next you will upload the lecture file on Setup.
+                The webcam opens on the lecture screen. Faces register when you press Start.
               </p>
             )}
           </>

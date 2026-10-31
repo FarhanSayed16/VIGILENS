@@ -12,6 +12,7 @@ import {
 } from "../../api/media";
 import { getRoom, type Room } from "../../api/rooms";
 import { getSession, type LectureSession, type SourceType } from "../../api/sessions";
+import { BROWSER_CAMERA_SOURCE, isAppPageUrl, isPhoneDevice } from "../../lib/phoneCamera";
 import "../sessions/sessions.css";
 import "./setup.css";
 
@@ -193,6 +194,12 @@ export function SetupPage() {
     const url = phoneUrl.trim();
     if (!url) {
       setError("Enter a phone stream URL (RTSP or HTTP).");
+      return;
+    }
+    if (isAppPageUrl(url)) {
+      setError(
+        "That is the VIGILENS website, not a camera. Use This phone’s camera instead.",
+      );
       return;
     }
     setPhoneBusy(true);
@@ -441,6 +448,34 @@ export function SetupPage() {
 
       {tab === "phone_rtsp" ? (
         <section className="setup-panel">
+          {isPhoneDevice() ? (
+            <div className="setup-actions" style={{ marginBottom: "0.75rem" }}>
+              <button
+                type="button"
+                className="btn-primary"
+                disabled={phoneBusy}
+                onClick={() => {
+                  setPhoneUrl(BROWSER_CAMERA_SOURCE);
+                  setPhoneBusy(true);
+                  setError(null);
+                  void setSessionSource(id, {
+                    source_type: "phone_rtsp",
+                    source_url: BROWSER_CAMERA_SOURCE,
+                  })
+                    .then((s) => {
+                      setSession(s);
+                      setOk("This phone’s camera is saved. Open the console and allow the camera.");
+                    })
+                    .catch((err) => {
+                      setError(err instanceof ApiError ? err.message : "Could not save");
+                    })
+                    .finally(() => setPhoneBusy(false));
+                }}
+              >
+                Use this phone’s camera
+              </button>
+            </div>
+          ) : null}
           <form onSubmit={(e) => void onSavePhone(e)}>
             <label>
               Stream URL
@@ -453,7 +488,10 @@ export function SetupPage() {
               />
             </label>
             <p className="setup-hint">
-              Typical apps: IP Webcam, DroidCam. Room default hint:{" "}
+              To use this phone, go back and create the session with This phone’s
+              camera — the site will ask for permission. An IP Webcam / DroidCam
+              URL looks like http://192.168.x.x:8080/video. Do not paste the
+              VIGILENS address (:5173). Room hint:{" "}
               {room?.camera_defaults?.phone_url_example || "none"}
             </p>
             <div className="setup-actions">

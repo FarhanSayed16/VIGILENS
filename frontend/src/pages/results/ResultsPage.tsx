@@ -29,7 +29,6 @@ function seatBand(o: number | null | undefined, usable: boolean): string {
 }
 
 function seatLabel(id: string): string {
-  if (/^v\d+$/i.test(id)) return `Extra ${id.slice(1)}`;
   return id;
 }
 
@@ -736,8 +735,8 @@ export function ResultsPage() {
                 <div className="window-seats">
                   <h3>Who faced the front</h3>
                   <p className="window-seats-sub">
-                    Anonymous seats only. “Extra” means someone outside your drawn
-                    seat boxes — not a named student.
+                    Anonymous faces registered this session. A tile exists only
+                    because a face was seen — not a pre-drawn chair.
                   </p>
                   <ul className="review-heat">
                     {selectedWindow.seat_stats_json.map((s) => (
