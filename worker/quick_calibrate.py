@@ -114,12 +114,11 @@ def suggest_layout(
             f"Unknown placement {placement!r}; choose one of {', '.join(PLACEMENTS)}"
         )
     p: Placement = placement  # type: ignore[assignment]
-    seats = suggest_seat_grid(p, rows=rows, cols=cols)
     target = _target_for(p)
     mode = facing_mode_for(p)
     return {
         "placement": p,
-        "seat_regions": seats,
+        "seat_regions": [],
         "target_roi": target,
         "facing_mode": mode,
         "hint": _hint(p),
@@ -129,20 +128,20 @@ def suggest_layout(
 def _hint(placement: Placement) -> str:
     return {
         "back_of_room": (
-            "Camera behind the class looking toward the board. "
-            "People → teal seats; amber box is the board/screen (tap to adjust)."
+            "Camera behind the class. Seats are registered from faces when the "
+            "lecture starts. The amber box is only the board direction."
         ),
         "facing_class": (
-            "Camera facing students (typical test setup). Only people become seats — "
-            "no board box. Looking at the camera counts as toward the board."
+            "Camera facing students. No seat boxes to draw. Looking at the camera "
+            "counts as facing the front once a face locks."
         ),
         "left_side": (
-            "Camera on the left wall looking across the rows. "
-            "People → seats; amber box is the board (usually on the left)."
+            "Camera on the left wall. Faces register their own seats at Start. "
+            "The amber box marks the board direction."
         ),
         "right_side": (
-            "Camera on the right wall looking across the rows. "
-            "People → seats; amber box is the board (usually on the right)."
+            "Camera on the right wall. Faces register their own seats at Start. "
+            "The amber box marks the board direction."
         ),
     }[placement]
 
@@ -220,8 +219,9 @@ def facing_sanity(placement: Placement) -> Dict[str, float]:
     layout = suggest_layout(placement, rows=2, cols=2)
     if layout["facing_mode"] == "toward_camera":
         return {"fx": 0.0, "fy": -1.0}
-    seats = regions.parse_seat_regions(layout["seat_regions"])
     target = regions.parse_target(layout["target_roi"])
     assert target is not None
-    geom = regions.teaching_target_geometry(target, seats)
-    return {"fx": geom.facing_vector_norm[0], "fy": geom.facing_vector_norm[1]}
+    tc = target.centroid_norm()
+    fx, fy = float(tc[0] - 0.5), float(tc[1] - 0.5)
+    norm = max(1e-6, (fx * fx + fy * fy) ** 0.5)
+    return {"fx": fx / norm, "fy": fy / norm}

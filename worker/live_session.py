@@ -7,14 +7,13 @@ Captures until should_stop(), commits class + per-seat stats every window_second
 from __future__ import annotations
 
 import logging
-import threading
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from queue import Empty, Queue
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
+from worker.face_registrar import FaceSeatRegistrar
 from worker.fake_worker import JobContract
 from worker.groups import cluster_low_orientation_seats
 
@@ -129,9 +128,8 @@ def run_real_live_session(
     config_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Real vision live loop — sample until stop (or file EOF)."""
-    from worker import capture, config, debug_overlay, regions, seat_mapping, vision_mediapipe, vision_yolo
+    from worker import capture, config, debug_overlay, regions, vision_mediapipe
     from worker.aggregation import aggregate_windows
-    from worker.features import features_from_frame_map
 
     cfg = config.load_config(config_path)
     wlen = float(window_seconds or 30.0)
@@ -153,53 +151,37 @@ def run_real_live_session(
         }
         on_heartbeat(payload)
 
-    seats = regions.parse_seat_regions(contract.seat_regions)
-    if not seats:
-        raise ValueError("Room has no seat regions — calibrate seats first")
-    expected_ids = [s.id for s in seats]
-
+    # Drawn room boxes are not seats. Faces register their own slots.
     facing_mode = (contract.facing_mode or "").strip().lower()
-    if facing_mode == "toward_camera":
+    phone_source = isinstance(source, str) and source.lower().startswith("browser:")
+    if facing_mode == "toward_camera" or phone_source or not contract.target_roi:
         facing = (0.0, -1.0)
     else:
-        if not contract.target_roi:
-            raise ValueError("Room has no teaching target ROI")
         target = regions.parse_target(contract.target_roi)
         if target is None:
-            raise ValueError("Teaching target ROI could not be parsed")
-        facing = regions.teaching_target_geometry(target, seats).facing_vector_norm
+            facing = (0.0, -1.0)
+        else:
+            facing = regions.teaching_target_geometry(target, []).facing_vector_norm
 
-    # Load vision BEFORE opening the webcam so the UI is not stuck on
-    # "camera ready / 0 detected" for the multi-second first YOLO load.
-    _hb("Loading vision model (first Start can take ~10s)…")
+    # Faces register seats. Body boxes are not seats, so live does not load YOLO.
+    _hb("Loading face model (first Start can take a few seconds)…")
     if on_progress:
         on_progress(4.0, "loading_models")
-    weights_raw = (cfg.get("models") or {}).get(
-        "yolo_pose_weights", "models/yolov8n-pose.pt"
-    )
-    weights_path = config.resolve_model_path(weights_raw)
-    if not weights_path.is_file():
-        weights_path = config.REPO_ROOT / "models" / Path(str(weights_raw)).name
-    model = vision_yolo.load_yolo_pose(str(weights_path))
-    logger.info("Live YOLO ready: %s", weights_path)
-
     tiers = cfg.get("tiers") or {}
-    enable_tier2 = bool(tiers.get("enable_tier2_head_pose", True))
-    # Classroom webcam: faces are smaller — allow Tier-2 a bit earlier
+    # Classroom webcam: faces are smaller — allow a face a bit earlier
     face_min = min(float(config.face_width_min_px(cfg)), 56.0)
     landmarker = None
-    if enable_tier2:
+    if bool(tiers.get("enable_tier2_head_pose", True)):
         _hb("Loading face landmarker…")
         try:
             mp_path = (cfg.get("models") or {}).get("mediapipe_face_landmarker")
             resolved_mp = config.resolve_model_path(
                 mp_path if isinstance(mp_path, str) else None
             )
-            landmarker = vision_mediapipe.load_face_landmarker(resolved_mp)
+            landmarker = vision_mediapipe.load_face_landmarker(resolved_mp, num_faces=20)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("Tier-2 unavailable in live: %s", exc)
+            logger.warning("Face landmarker unavailable in live: %s", exc)
             landmarker = None
-            enable_tier2 = False
 
     orientation = cfg.get("orientation") or {}
     pitch_down = float(orientation.get("pitch_down_threshold_deg", 20.0))
@@ -228,118 +210,68 @@ def run_real_live_session(
     window_index = 0
     frame_i = 0
     t_start = time.monotonic()
-    # Preview on main thread; YOLO async so detection never freezes the feed
-    preview_fps = 18.0
+    preview_fps = 12.0
     metric_fps = max(float(fps), 2.5)
     metric_interval = 1.0 / metric_fps
     next_metric_at = 0.0
-    last_fmap = seat_mapping.FrameSeatMap(
-        time_sec=0.0,
-        persons=[],
-        seat_to_person_indices={s.id: [] for s in seats},
-        unassigned_indices=[],
-    )
-    # Rolling set of seat ids (room + virtual) seen recently — class size can change
-    active_seat_ids: List[str] = list(expected_ids)
-    fmap_lock = threading.Lock()
-    metric_busy = threading.Event()
-    result_q: Queue[
-        Tuple[float, Any, Any, float, int, int]
-    ] = Queue(maxsize=2)
+    registrar = FaceSeatRegistrar()
+    last_boxes: List[Any] = []
 
-    def _merge_active_seats(fmap: Any) -> List[str]:
-        nonlocal active_seat_ids
-        seen = list(active_seat_ids)
-        for sid, idxs in (fmap.seat_to_person_indices or {}).items():
-            if idxs and sid not in seen:
-                seen.append(str(sid))
-        # Drop stale virtual seats not present this frame (people left)
-        present = {
-            str(sid)
-            for sid, idxs in (fmap.seat_to_person_indices or {}).items()
-            if idxs
-        }
-        room = set(expected_ids)
-        kept = [s for s in seen if s in room or s in present]
-        for sid in present:
-            if sid not in kept:
-                kept.append(sid)
-        active_seat_ids = kept
-        return active_seat_ids
-
-    def _detect_async(
-        image: Any, time_sec: float, width: int, height: int
-    ) -> None:
-        nonlocal last_fmap
-        try:
-            luma = capture.frame_mean_luma(image)
-            det_image = capture.enhance_for_detection(image)
-            # Full imgsz + high max_det for multi-student classroom frames
-            people = vision_yolo.detect_persons(
-                model,
-                det_image,
-                conf=0.12,
-                imgsz=640,
-                max_det=80,
-                iou=0.50,
+    def _seat_rows(feats: Sequence[Any]) -> List[Dict[str, Any]]:
+        rows: List[Dict[str, Any]] = []
+        for feat in feats:
+            usable = bool(feat.is_observable())
+            orient = None
+            if usable and feat.target_oriented is True:
+                orient = 90.0
+            elif usable and feat.target_oriented is False:
+                orient = 30.0
+            rows.append(
+                {
+                    "seat_id": feat.seat_id,
+                    "orientation_pct": orient,
+                    "usable": usable,
+                }
             )
-            if not people and luma >= 8.0:
-                people = vision_yolo.detect_persons(
-                    model,
-                    det_image,
-                    conf=0.05,
-                    imgsz=640,
-                    max_det=80,
-                    iou=0.50,
-                )
-            fmap = seat_mapping.assign_persons_to_seats(
-                people,
-                seats,
-                frame_width=width,
-                frame_height=height,
-                time_sec=time_sec,
-                soft_radius_norm=0.18,
-                virtual_for_unassigned=True,
-                max_virtual_seats=60,
-            )
-            in_seats = sum(1 for v in fmap.seat_to_person_indices.values() if v)
-            with fmap_lock:
-                last_fmap = fmap
-            try:
-                result_q.put_nowait(
-                    (time_sec, det_image, fmap, luma, len(people), in_seats)
-                )
-            except Exception:  # noqa: BLE001
-                pass
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("async detect failed: %s", type(exc).__name__)
-        finally:
-            metric_busy.clear()
+        return rows
 
     if on_progress:
         on_progress(8.0, "ingest")
 
-    for frame in capture.iter_sampled_frames(
-        source,
-        sample_fps=preview_fps,
-        max_frames=None,
-        config_path=config_path,
-    ):
+    browser_cam = isinstance(source, str) and source.lower().startswith("browser:")
+    if browser_cam:
+        def _pull_phone_jpeg() -> tuple:
+            from app.cache.redis_client import get_live_ingest_jpeg
+
+            return get_live_ingest_jpeg(contract.session_id)
+
+        _hb("Waiting for this phone's camera… allow the permission prompt.")
+        frame_iter = capture.iter_pushed_jpegs(
+            _pull_phone_jpeg,
+            sample_fps=preview_fps,
+            should_stop=should_stop,
+            on_waiting=lambda msg: _hb(msg),
+        )
+    else:
+        frame_iter = capture.iter_sampled_frames(
+            source,
+            sample_fps=preview_fps,
+            max_frames=None,
+            config_path=config_path,
+        )
+
+    for frame in frame_iter:
         if should_stop and should_stop():
             break
 
-        with fmap_lock:
-            overlay_map = last_fmap
-
-        # Fast path: clear preview every grabbed frame (boxes from last detect)
         if on_preview:
             try:
-                jpeg = debug_overlay.encode_live_preview_jpeg(
+                jpeg = debug_overlay.encode_face_preview_jpeg(
                     frame.image,
-                    seats,
-                    overlay_map,
+                    last_boxes,
                     quality=82,
                     max_width=1100,
+                    banner=registrar.hint(float(frame.time_sec)),
                 )
                 if jpeg:
                     on_preview(jpeg)
@@ -351,62 +283,57 @@ def run_real_live_session(
                         exc,
                     )
 
-        # Apply finished detections on the main thread (MediaPipe is not threaded)
-        while True:
-            try:
-                (
-                    m_time,
-                    det_image,
-                    fmap,
-                    luma,
-                    n_people,
-                    in_seats,
-                ) = result_q.get_nowait()
-            except Empty:
-                break
-            with fmap_lock:
-                last_fmap = fmap
-            track_ids = _merge_active_seats(fmap)
+        # Face landmarker stays on this thread. Seats come only from stable faces.
+        if frame.time_sec + 1e-6 >= next_metric_at:
+            next_metric_at = float(frame.time_sec) + metric_interval
+            m_time = float(frame.time_sec)
+            luma = capture.frame_mean_luma(frame.image)
+            if landmarker is None:
+                sightings = []
+                hint = "Face model did not load — no seats will be registered."
+            else:
+                sightings = vision_mediapipe.face_sightings_from_frame(
+                    landmarker,
+                    frame.image,
+                    time_sec=m_time,
+                    min_eye_px=min(face_min, 18.0),
+                )
+                hint = registrar.hint(m_time)
+            last_boxes = registrar.update(
+                sightings,
+                time_sec=m_time,
+                frame_width=frame.width,
+                frame_height=frame.height,
+            )
+            if luma < 8.0:
+                hint = (
+                    "Frames are almost black — check that the phone camera is allowed "
+                    "and the lens is uncovered."
+                )
+            elif not last_boxes and luma >= 8.0 and landmarker is not None:
+                hint = registrar.hint(m_time)
+            feats = registrar.to_features(
+                m_time,
+                facing_vector_norm=facing,
+                yaw_threshold_deg=yaw_thr,
+                pitch_down_threshold_deg=pitch_down,
+            )
+            locked = registrar.locked_ids()
             if on_heartbeat:
-                if luma < 8.0:
-                    hint = (
-                        "Worker frames are almost black — another app may still own "
-                        "the camera. Stop browser preview apps and Restart lecture."
-                    )
-                elif n_people == 0:
-                    hint = (
-                        f"No people in view (brightness {luma:.0f}). "
-                        "Face the lens; classmates can sit anywhere in frame."
-                    )
-                else:
-                    hint = (
-                        f"Detecting {n_people} people — {in_seats} tracked "
-                        f"(room seats + auto slots; class can grow/shrink live)"
-                    )
                 on_heartbeat(
                     {
-                        "persons_detected": n_people,
-                        "persons_in_seats": in_seats,
-                        "time_sec": float(m_time),
+                        "persons_detected": len(sightings),
+                        "persons_in_seats": len(locked),
+                        "time_sec": m_time,
                         "detection_hint": hint,
                         "frame_luma": luma,
                         "worker_source": source if isinstance(source, str) else None,
                         "preview_fps": preview_fps,
                         "metric_fps": metric_fps,
-                        "tracked_seats": len(track_ids),
+                        "tracked_seats": len(locked),
+                        "per_seat": _seat_rows(feats),
                     }
                 )
-            feats = features_from_frame_map(
-                fmap,
-                frame_bgr=det_image,
-                landmarker=landmarker,
-                face_width_min_px=face_min,
-                pitch_down_threshold_deg=pitch_down,
-                enable_tier2=enable_tier2 and landmarker is not None,
-                facing_vector_norm=facing,
-                yaw_threshold_deg=yaw_thr,
-                tier1_yaw_threshold_deg=tier1_yaw,
-            )
             buffer.extend(feats)
             while True:
                 w_end = (window_index + 1) * wlen
@@ -415,11 +342,10 @@ def run_real_live_session(
                 w_start = window_index * wlen
                 chunk = [f for f in buffer if w_start <= f.time_sec < w_end]
                 buffer = [f for f in buffer if f.time_sec >= w_end]
-                # Expected = room seats + any virtual ids present in this window
-                win_ids = list(expected_ids)
-                for f in chunk:
-                    if f.seat_id and f.seat_id not in win_ids:
-                        win_ids.append(f.seat_id)
+                win_ids = list(registrar.locked_ids())
+                if not win_ids:
+                    window_index += 1
+                    continue
                 wins = aggregate_windows(
                     chunk,
                     expected_seat_ids=win_ids,
@@ -452,63 +378,29 @@ def run_real_live_session(
                     elapsed = time.monotonic() - t_start
                     on_progress(min(90.0, 10.0 + (elapsed % 80)), "vision")
 
-        if frame.time_sec + 1e-6 >= next_metric_at and not metric_busy.is_set():
-            next_metric_at = float(frame.time_sec) + metric_interval
-            metric_busy.set()
-            img_copy = frame.image.copy()
-            threading.Thread(
-                target=_detect_async,
-                args=(img_copy, float(frame.time_sec), frame.width, frame.height),
-                name="vigilens-detect",
-                daemon=True,
-            ).start()
-
         frame_i += 1
         if contract.video_path and frame.time_sec > float(contract.duration_sec or 1e12):
             break
 
-    # Drain any in-flight detect before finalize
-    if metric_busy.is_set():
-        metric_busy.wait(timeout=5.0)
-    while True:
-        try:
-            m_time, det_image, fmap, luma, n_people, in_seats = result_q.get_nowait()
-        except Empty:
-            break
-        with fmap_lock:
-            last_fmap = fmap
-        feats = features_from_frame_map(
-            fmap,
-            frame_bgr=det_image,
-            landmarker=landmarker,
-            face_width_min_px=face_min,
-            pitch_down_threshold_deg=pitch_down,
-            enable_tier2=enable_tier2 and landmarker is not None,
-            facing_vector_norm=facing,
-            yaw_threshold_deg=yaw_thr,
-            tier1_yaw_threshold_deg=tier1_yaw,
-        )
-        buffer.extend(feats)
-
     if buffer:
         w_start = window_index * wlen
         w_end = w_start + wlen
-        win_ids = list(expected_ids)
-        for f in buffer:
-            if f.seat_id and f.seat_id not in win_ids:
-                win_ids.append(f.seat_id)
-        wins = aggregate_windows(
-            buffer,
-            expected_seat_ids=win_ids,
-            window_seconds=wlen,
-            topics=contract.topics,
-            modes=contract.modes,
-            sample_interval_sec=1.0 / metric_fps,
-            partial_window_min_seconds=5.0,
-            min_usable_seats=1,
-            min_coverage_pct=1.0,
-            min_usable_sample_frac=0.20,
-        )
+        win_ids = list(registrar.locked_ids())
+        if not win_ids:
+            wins = []
+        else:
+            wins = aggregate_windows(
+                buffer,
+                expected_seat_ids=win_ids,
+                window_seconds=wlen,
+                topics=contract.topics,
+                modes=contract.modes,
+                sample_interval_sec=1.0 / metric_fps,
+                partial_window_min_seconds=5.0,
+                min_usable_seats=1,
+                min_coverage_pct=1.0,
+                min_usable_sample_frac=0.20,
+            )
         if wins:
             w = wins[0]
             w["start_sec"] = float(w_start)

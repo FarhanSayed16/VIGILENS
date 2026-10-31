@@ -5,7 +5,7 @@ Local-only debug overlays for YOLO + seat regions (not a product export).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple
+from typing import Any, List, Optional, Sequence, Tuple
 
 import cv2
 import numpy as np
@@ -132,6 +132,68 @@ def compose_debug_frame(
         cv2.LINE_AA,
     )
     return out
+
+
+def encode_face_preview_jpeg(
+    frame_bgr: np.ndarray,
+    boxes: Sequence[Any],
+    *,
+    quality: int = 82,
+    max_width: int = 1100,
+    banner: str = "",
+) -> bytes:
+    """JPEG preview. Boxes are live faces only — never a pre-drawn seat grid."""
+    out = frame_bgr.copy()
+    for box in boxes:
+        x1, y1, x2, y2 = [int(v) for v in box.bbox_xyxy]
+        if box.locked:
+            color = (40, 160, 120)
+            label = box.slot_id or "face"
+        elif box.moving:
+            color = (40, 160, 220)
+            label = "hold still"
+        else:
+            color = (40, 180, 220)
+            label = "face"
+        cv2.rectangle(out, (x1, y1), (x2, y2), color, 2)
+        cv2.putText(
+            out,
+            label,
+            (x1, max(16, y1 - 6)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.55,
+            color,
+            2,
+            cv2.LINE_AA,
+        )
+    h, w = out.shape[:2]
+    if w > max_width > 0:
+        scale = max_width / float(w)
+        out = cv2.resize(
+            out,
+            (max_width, max(1, int(h * scale))),
+            interpolation=cv2.INTER_AREA,
+        )
+    locked = sum(1 for b in boxes if getattr(b, "locked", False))
+    text = banner or f"Faces {len(boxes)} - registered {locked}"
+    cv2.putText(
+        out,
+        text,
+        (10, 28),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.7,
+        (245, 245, 245),
+        2,
+        cv2.LINE_AA,
+    )
+    ok, buf = cv2.imencode(
+        ".jpg",
+        out,
+        [int(cv2.IMWRITE_JPEG_QUALITY), int(quality)],
+    )
+    if not ok:
+        return b""
+    return bytes(buf)
 
 
 def encode_live_preview_jpeg(
